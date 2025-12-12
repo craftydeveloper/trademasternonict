@@ -626,15 +626,6 @@
                     return;
                 }
                 
-                // Skip DOM manipulation to prevent visual instability
-                // Only update if containers are empty (initial load)
-                if (topTradesContainer.children.length === 0) {
-                    topTradesContainer.innerHTML = '';
-                }
-                if (otherOpportunitiesContainer.children.length === 0) {
-                    otherOpportunitiesContainer.innerHTML = '';
-                }
-                
                 // Update Active Signals counter
                 const activeSignalsElement = document.getElementById('active-signals');
                 if (activeSignalsElement) {
@@ -643,17 +634,32 @@
                 }
                 
                 if (!signals || signals.length === 0) {
-                    console.log('No signals received, showing loading state');
+                    console.log('No high-scoring signals - HOLD mode active');
                     topTradesContainer.innerHTML = `
-                        <div class="text-center py-4">
-                            <div class="spinner-border text-info" role="status">
-                                <span class="visually-hidden">Loading fresh signals...</span>
+                        <div class="trading-card text-center py-5" style="border: 2px solid #ffc107;">
+                            <div class="mb-3">
+                                <span style="font-size: 3rem;">⏳</span>
                             </div>
-                            <p class="mt-2">Refreshing trading signals...</p>
+                            <h4 class="text-warning mb-3">HOLD - Waiting for High-Probability Setup</h4>
+                            <p class="text-muted mb-2">Structure analysis active - analyzing HTF trends, liquidity sweeps, MSS/CHoCH</p>
+                            <p class="text-muted mb-3">Signal requires score ≥7 from: HTF alignment + liquidity sweep + structure shift</p>
+                            <div class="d-flex justify-content-center gap-4 mt-3">
+                                <div class="text-center">
+                                    <div class="text-info h5 mb-0">100+</div>
+                                    <small class="text-muted">Checks per token</small>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-warning h5 mb-0">4H+</div>
+                                    <small class="text-muted">Min hold time</small>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-success h5 mb-0">7/10</div>
+                                    <small class="text-muted">Min score required</small>
+                                </div>
+                            </div>
+                            <p class="text-muted mt-4 mb-0"><small>Predictive mode: Calling tops/bottoms before price moves, not reacting to them</small></p>
                         </div>
                     `;
-                    // Force another refresh if no signals
-                    setTimeout(() => this.loadAllData(), 2000);
                     return;
                 }
 

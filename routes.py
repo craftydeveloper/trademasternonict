@@ -1229,13 +1229,14 @@ def get_active_signal_trades():
 
 @app.route('/api/predictive-signals')
 def get_predictive_trading_signals():
-    """Get predictive trading signals that call tops and bottoms"""
+    """Get predictive trading signals using OHLCV structure analysis
+    Only returns LONG/SHORT when score >= 7, otherwise HOLD
+    Maintains bias until setup is invalidated
+    """
     try:
-        # Get market data
         data_provider = BackupDataProvider()
         market_data = data_provider.get_market_data() or {}
         
-        # Apply live price simulation
         live_prices = get_simulated_live_prices()
         for sym, live_price in live_prices.items():
             if sym in market_data:
@@ -1243,14 +1244,14 @@ def get_predictive_trading_signals():
             else:
                 market_data[sym] = {'price': live_price, 'change_24h': 0}
         
-        # Sync with Bybit
         market_data = sync_market_data_with_bybit(market_data)
         
-        # Get comprehensive token list
         all_tokens = get_comprehensive_bybit_tokens()
         
-        signals = []
-        for token in all_tokens[:25]:  # Top 25 tokens
+        actionable_signals = []
+        hold_signals = []
+        
+        for token in all_tokens[:15]:  # Top 15 tokens for structure analysis
             symbol = token['symbol']
             
             if symbol not in market_data:
@@ -1259,30 +1260,11 @@ def get_predictive_trading_signals():
             current_price = market_data[symbol].get('price', 0)
             price_change = market_data[symbol].get('change_24h', 0)
             
-            # Skip tokens with zero or missing price data
             if not current_price or current_price <= 0:
                 continue
             
-            # Check if we should issue a signal (no active trade)
-            # Also check for trade completion
             can_issue, reason = should_issue_signal(symbol, current_price)
             
-            # Skip if there's an active trade for this symbol
-            if not can_issue:
-                # Still include in the list but mark as not tradeable
-                signal = get_predictive_signal(
-                    symbol=symbol,
-                    current_price=current_price,
-                    price_change_24h=price_change,
-                    volume_ratio=1.0
-                )
-                signal['can_trade'] = False
-                signal['trade_status'] = reason
-                if signal['action'] != 'HOLD':
-                    signals.append(signal)
-                continue
-            
-            # Get predictive signal for tradeable symbols
             signal = get_predictive_signal(
                 symbol=symbol,
                 current_price=current_price,
@@ -1290,31 +1272,43 @@ def get_predictive_trading_signals():
                 volume_ratio=1.0
             )
             
-            # Add trade status info
-            signal['can_trade'] = True
-            signal['trade_status'] = 'Ready to trade'
+            if not can_issue:
+                signal['can_trade'] = False
+                signal['trade_status'] = reason
+            else:
+                signal['can_trade'] = True
+                signal['trade_status'] = 'Ready to trade'
             
-            # Only include actionable signals (not HOLD)
-            if signal['action'] != 'HOLD' and signal['confidence'] >= 80:
-                signals.append(signal)
+            score = signal.get('score', 0)
+            
+            if signal['action'] != 'HOLD' and score >= 7:
+                actionable_signals.append(signal)
+            else:
+                hold_signals.append(signal)
         
-        # Sort by confidence, but prioritize tradeable signals
-        signals.sort(key=lambda x: (x['can_trade'], x['confidence']), reverse=True)
+        actionable_signals.sort(key=lambda x: (x.get('score', 0), x.get('confidence', 0)), reverse=True)
         
-        # Track bias changes ONLY for the final displayed signals (top 6)
-        final_signals = signals[:6]
+        final_signals = actionable_signals[:6]
+        
         for sig in final_signals:
-            track_displayed_signal(sig['symbol'], sig['action'], sig['entry_price'])
+            if sig['action'] != 'HOLD':
+                track_displayed_signal(sig['symbol'], sig['action'], sig['entry_price'])
         
-        # Get notifications (only for displayed signals now)
         notifications = get_bias_change_notifications()
+        
+        hold_count = len(hold_signals)
+        analyzed_count = len(actionable_signals) + hold_count
         
         return jsonify({
             'success': True,
-            'signals': signals[:6],  # Top 6 signals
+            'signals': final_signals,
             'notifications': notifications,
             'active_trades': len(get_active_trades()),
-            'total_analyzed': len(all_tokens[:25]),
+            'total_analyzed': analyzed_count,
+            'hold_count': hold_count,
+            'actionable_count': len(actionable_signals),
+            'analysis_mode': 'structure_based',
+            'min_score_required': 7,
             'timestamp': datetime.now().isoformat()
         })
         
