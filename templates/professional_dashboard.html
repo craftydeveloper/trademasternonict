@@ -319,9 +319,50 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        
+        /* Toast Notification System */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .custom-toast {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px 24px;
+            min-width: 300px;
+            max-width: 400px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            animation: slideIn 0.3s ease;
+        }
+        
+        .custom-toast.success { border-left: 4px solid var(--accent-green); }
+        .custom-toast.error { border-left: 4px solid var(--accent-red); }
+        .custom-toast.info { border-left: 4px solid var(--accent-blue); }
+        .custom-toast.warning { border-left: 4px solid #f39c12; }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
     </style>
 </head>
 <body class="bg-dark text-light">
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+    
     <nav class="navbar navbar-expand-lg">
         <div class="container">
             <div class="w-100 d-flex justify-content-center">
@@ -471,6 +512,20 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Toast notification system (replaces alert() for iframe compatibility)
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `custom-toast ${type}`;
+            toast.innerHTML = message;
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+        
         class ProfessionalDashboard {
             constructor() {
                 this.refreshInterval = null;
@@ -1257,7 +1312,7 @@
                 if (signal && signal.bybit_settings) {
                     // Check if trade can be executed
                     if (signal.can_trade === false) {
-                        alert(`Cannot execute: ${signal.trade_status}`);
+                        showToast(`Cannot execute: ${signal.trade_status}`, 'warning');
                         return;
                     }
                     
@@ -1298,14 +1353,14 @@
                     } catch (e) {
                         console.error('Error fetching analysis:', e);
                     }
-                    alert(`${action} signal for ${symbol} noted. Please execute manually on Bybit.`);
+                    showToast(`${action} signal for ${symbol} noted. Please execute manually on Bybit.`, 'info');
                 }
             }
 
             showBybitSettings(symbol, settings) {
                 try {
                     if (!settings || !settings.symbol) {
-                        alert(`Setup data not available for ${symbol}. Please try again.`);
+                        showToast(`Setup data not available for ${symbol}. Please try again.`, 'error');
                         return;
                     }
                     
@@ -1317,7 +1372,7 @@
                         entryPrice = settings.side === 'BUY' ? sl / 0.97 : sl / 1.03;
                     }
                     if (entryPrice === 0) {
-                        alert(`Entry price not available for ${symbol}. Please try again.`);
+                        showToast(`Entry price not available for ${symbol}. Please try again.`, 'error');
                         return;
                     }
                     const entryLow = settings.entryLow || (entryPrice * 0.995).toFixed(entryPrice < 1 ? 6 : 4);
@@ -1435,7 +1490,8 @@
                     const modal = new bootstrap.Modal(document.getElementById('recommendationModal'));
                     modal.show();
                 } catch (error) {
-                    alert('Error displaying Bybit settings');
+                    console.error('Error displaying Bybit settings:', error);
+                    showToast('Error displaying trade setup. Please try again.', 'error');
                 }
             }
 
@@ -1453,8 +1509,8 @@
                 };
                 
                 navigator.clipboard.writeText(JSON.stringify(settings, null, 2))
-                    .then(() => alert('Bybit settings copied to clipboard!'))
-                    .catch(() => alert('Failed to copy settings'));
+                    .then(() => showToast('Bybit settings copied to clipboard!', 'success'))
+                    .catch(() => showToast('Failed to copy settings', 'error'));
             }
             
             async completeTrade(symbol) {
@@ -1466,17 +1522,17 @@
                     const result = await response.json();
                     
                     if (result.success) {
-                        alert(`Trade for ${symbol} marked complete! New signals can now be issued.`);
+                        showToast(`Trade for ${symbol} marked complete! New signals can now be issued.`, 'success');
                         // Close modal and refresh data
                         const modal = bootstrap.Modal.getInstance(document.getElementById('recommendationModal'));
                         if (modal) modal.hide();
                         this.loadRecommendations();
                     } else {
-                        alert(`Error: ${result.error || 'Could not complete trade'}`);
+                        showToast(`Error: ${result.error || 'Could not complete trade'}`, 'error');
                     }
                 } catch (e) {
                     console.error('Error completing trade:', e);
-                    alert('Error completing trade. Please try again.');
+                    showToast('Error completing trade. Please try again.', 'error');
                 }
             }
 
