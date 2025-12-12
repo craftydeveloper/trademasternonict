@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Futures Trading Bot{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
+    
+    <!-- Socket.IO -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+    
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #0d1117;
+            color: #f0f6fc;
+            line-height: 1.5;
+        }
+        
+        .navbar {
+            background: rgba(22, 27, 34, 0.95) !important;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #21262d;
+        }
+        
+        .navbar-brand {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: #f0f6fc !important;
+        }
+        
+        .nav-link {
+            color: #8b949e !important;
+            font-weight: 500;
+        }
+        
+        .nav-link:hover {
+            color: #58a6ff !important;
+        }
+    </style>
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg">
+        <div class="container">
+            <div class="w-100 d-flex justify-content-center">
+                <a class="navbar-brand" href="{{ url_for('index') }}" style="margin: 0;">
+                    TradePro
+                </a>
+            </div>
+        </div>
+    </nav>
+
+
+
+    <!-- Main Content -->
+    <main class="flex-grow-1">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-light py-3 mt-5">
+        <div class="container text-center">
+            <small>
+                © 2025 Futures Trading Bot | 
+                <a href="#" class="text-decoration-none">Professional Trading Platform</a>
+            </small>
+            <div class="mt-2">
+                <small class="text-muted">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    Cryptocurrency trading is highly volatile and involves significant financial risk. Past performance does not guarantee future results. 
+                    Only invest what you can afford to lose. Trading decisions are your responsibility.
+                </small>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>
