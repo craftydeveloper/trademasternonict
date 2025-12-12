@@ -28,6 +28,27 @@ Key components include:
 
 The system incorporates a "MODERATE-AGGRESSIVE" strategy aiming for a daily profit target with enhanced signal detection and tiered risk allocation. UI/UX emphasizes a clean, modern, professional interface with a GitHub-inspired dark theme, glassmorphism effects, and responsive design.
 
+## Long-Term Signal System (Updated Dec 2025)
+
+The predictive signal system has been redesigned for long-term trading with patient analysis:
+
+**Signal Persistence:**
+- Signals persist for up to 4 hours unless invalidated
+- Minimum 2-hour debounce between bias changes for the same token
+- Signals only change when: Stop Loss hit, Take Profit hit, HTF trend reverses, or signal expires
+
+**Higher Timeframe (HTF) Trend Tracking:**
+- HTF trend updates hourly based on 24h price action
+- BUY signals require bullish or neutral HTF (blocked in downtrends)
+- SELL signals require bearish or neutral HTF (blocked in uptrends)
+- Signals invalidate immediately if HTF reverses against position
+
+**Deep Analysis Requirements:**
+- Increased threshold to 60+ score (from 40+) for new signals
+- Requires 3%+ price moves for trend-following signals (from 1.5%)
+- Removed time-based variation that caused rapid flip-flopping
+- Multiple confluences required before issuing new signals
+
 ## External Dependencies
 
 - **APIs**:
