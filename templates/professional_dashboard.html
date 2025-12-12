@@ -1304,10 +1304,24 @@
 
             showBybitSettings(symbol, settings) {
                 try {
-                    // Use pre-calculated entry range from backend
-                    const entryPrice = parseFloat(settings.entryPrice || settings.stopLoss);
-                    const entryLow = settings.entryLow || (entryPrice * 0.995).toFixed(entryPrice < 1 ? 6 : 2);
-                    const entryHigh = settings.entryHigh || (entryPrice * 1.005).toFixed(entryPrice < 1 ? 6 : 2);
+                    if (!settings || !settings.symbol) {
+                        alert(`Setup data not available for ${symbol}. Please try again.`);
+                        return;
+                    }
+                    
+                    // Use pre-calculated entry range from backend with robust fallbacks
+                    let entryPrice = parseFloat(settings.entryPrice) || 0;
+                    if (entryPrice === 0 && settings.stopLoss) {
+                        // Fallback: estimate entry from stop loss
+                        const sl = parseFloat(settings.stopLoss);
+                        entryPrice = settings.side === 'BUY' ? sl / 0.97 : sl / 1.03;
+                    }
+                    if (entryPrice === 0) {
+                        alert(`Entry price not available for ${symbol}. Please try again.`);
+                        return;
+                    }
+                    const entryLow = settings.entryLow || (entryPrice * 0.995).toFixed(entryPrice < 1 ? 6 : 4);
+                    const entryHigh = settings.entryHigh || (entryPrice * 1.005).toFixed(entryPrice < 1 ? 6 : 4);
                     
                     // Calculate actual risk for $50 account
                     const accountBalance = 50;
