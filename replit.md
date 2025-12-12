@@ -49,6 +49,12 @@ The predictive signal system has been redesigned for long-term trading with pati
 - Removed time-based variation that caused rapid flip-flopping
 - Multiple confluences required before issuing new signals
 
+**Uniform Entry/TP/SL Structure (Dec 12, 2025):**
+- All signals now use `_build_bybit_settings()` helper for consistency
+- Bybit settings always include: entryPrice, entryLow, entryHigh, stopLoss, takeProfit
+- Prices formatted consistently: 6 decimals for <$1 tokens, 4 decimals for >=$1 tokens
+- View Setup modal displays all fields correctly for both new signals and active positions
+
 ## External Dependencies
 
 - **APIs**:

@@ -47,6 +47,43 @@ def clear_all_signal_state():
     logger.info("Cleared all signal tracking state")
 
 
+def _build_bybit_settings(symbol: str, action: str, entry_price: float, 
+                          stop_loss: float, take_profit: float, qty: str = '0') -> Dict:
+    """
+    Build uniform bybit_settings object for all signal types.
+    Ensures Entry, TP, SL are formatted consistently everywhere.
+    """
+    leverage = 12
+    
+    if entry_price < 1:
+        entry_str = f"{entry_price:.6f}"
+        sl_str = f"{stop_loss:.6f}"
+        tp_str = f"{take_profit:.6f}"
+        entry_low_str = f"{entry_price * 0.995:.6f}"
+        entry_high_str = f"{entry_price * 1.005:.6f}"
+    else:
+        entry_str = f"{entry_price:.4f}"
+        sl_str = f"{stop_loss:.4f}"
+        tp_str = f"{take_profit:.4f}"
+        entry_low_str = f"{entry_price * 0.995:.4f}"
+        entry_high_str = f"{entry_price * 1.005:.4f}"
+    
+    return {
+        'symbol': f"{symbol}USDT",
+        'side': action,
+        'orderType': 'Market',
+        'qty': qty,
+        'leverage': str(leverage),
+        'entryPrice': entry_str,
+        'entryLow': entry_low_str,
+        'entryHigh': entry_high_str,
+        'stopLoss': sl_str,
+        'takeProfit': tp_str,
+        'marginMode': 'isolated',
+        'timeInForce': 'GTC'
+    }
+
+
 def get_htf_trend(symbol: str, current_price: float, price_change_24h: float) -> str:
     """
     Calculate Higher Timeframe (HTF) trend. 
@@ -207,15 +244,14 @@ def get_predictive_signal(symbol: str, current_price: float, price_change_24h: f
             'timestamp': existing['timestamp'].isoformat(),
             'signal_active_hours': round(hours_active, 1),
             'htf_trend': htf_trend,
-            'bybit_settings': {
-                'symbol': f"{symbol}USDT",
-                'side': existing['action'],
-                'orderType': 'Market',
-                'qty': '0',  # Already in position
-                'leverage': '12',
-                'marginMode': 'isolated',
-                'timeInForce': 'GTC'
-            }
+            'bybit_settings': _build_bybit_settings(
+                symbol=symbol,
+                action=existing['action'],
+                entry_price=existing['entry_price'],
+                stop_loss=existing['stop_loss'],
+                take_profit=existing['take_profit'],
+                qty='0'  # Already in position
+            )
         }
     
     # Signal was invalidated or doesn't exist - generate new analysis
@@ -598,20 +634,6 @@ def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str,
     else:
         qty_str = f"{qty:.2f}"
     
-    # Format prices for display
-    if current_price < 1:
-        entry_str = f"{current_price:.6f}"
-        sl_str = f"{stop_loss:.6f}"
-        tp_str = f"{take_profit:.6f}"
-        entry_low_str = f"{current_price * 0.995:.6f}"
-        entry_high_str = f"{current_price * 1.005:.6f}"
-    else:
-        entry_str = f"{current_price:.4f}"
-        sl_str = f"{stop_loss:.4f}"
-        tp_str = f"{take_profit:.4f}"
-        entry_low_str = f"{current_price * 0.995:.4f}"
-        entry_high_str = f"{current_price * 1.005:.4f}"
-    
     return {
         'symbol': symbol,
         'action': action,
@@ -631,20 +653,14 @@ def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str,
         'leverage': leverage,
         'risk_reward': round(abs(take_profit - current_price) / abs(current_price - stop_loss), 2) if abs(current_price - stop_loss) > 0 else 3.33,
         'timestamp': datetime.now().isoformat(),
-        'bybit_settings': {
-            'symbol': f"{symbol}USDT",
-            'side': action,
-            'orderType': 'Market',
-            'qty': qty_str,
-            'leverage': str(leverage),
-            'entryPrice': entry_str,
-            'entryLow': entry_low_str,
-            'entryHigh': entry_high_str,
-            'stopLoss': sl_str,
-            'takeProfit': tp_str,
-            'marginMode': 'isolated',
-            'timeInForce': 'GTC'
-        }
+        'bybit_settings': _build_bybit_settings(
+            symbol=symbol,
+            action=action,
+            entry_price=current_price,
+            stop_loss=stop_loss,
+            take_profit=take_profit,
+            qty=qty_str
+        )
     }
 
 

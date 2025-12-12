@@ -312,6 +312,12 @@ def get_trading_signals_optimized():
                 # Extract symbol string from token object
                 symbol_str = token['symbol'] if isinstance(token, dict) else str(token)
                 
+                entry_str = f"{current_price:.6f}" if current_price < 1 else f"{current_price:.4f}"
+                sl_str = f"{stop_loss:.6f}" if current_price < 1 else f"{stop_loss:.4f}"
+                tp_str = f"{take_profit:.6f}" if current_price < 1 else f"{take_profit:.4f}"
+                entry_low = f"{current_price * 0.995:.6f}" if current_price < 1 else f"{current_price * 0.995:.4f}"
+                entry_high = f"{current_price * 1.005:.6f}" if current_price < 1 else f"{current_price * 1.005:.4f}"
+                
                 signal = {
                     'symbol': symbol_str,
                     'action': action,
@@ -329,8 +335,11 @@ def get_trading_signals_optimized():
                         'qty': qty_str,
                         'leverage': str(leverage),
                         'marginMode': 'isolated',
-                        'stopLoss': f"{stop_loss:.6f}" if current_price < 0.01 else f"{stop_loss:.4f}",
-                        'takeProfit': f"{take_profit:.6f}" if current_price < 0.01 else f"{take_profit:.4f}",
+                        'entryPrice': entry_str,
+                        'entryLow': entry_low,
+                        'entryHigh': entry_high,
+                        'stopLoss': sl_str,
+                        'takeProfit': tp_str,
                         'timeInForce': 'GTC'
                     }
                 }
@@ -490,6 +499,12 @@ def generate_mock_signals():
             else:
                 qty_str = "100"    # Minimum for low-price tokens
         
+        entry_str = f"{price:.6f}" if price < 1 else f"{price:.4f}"
+        sl_str = f"{stop_loss:.6f}" if price < 1 else f"{stop_loss:.4f}"
+        tp_str = f"{take_profit:.6f}" if price < 1 else f"{take_profit:.4f}"
+        entry_low = f"{price * 0.995:.6f}" if price < 1 else f"{price * 0.995:.4f}"
+        entry_high = f"{price * 1.005:.6f}" if price < 1 else f"{price * 1.005:.4f}"
+        
         signal = {
             'symbol': symbol,
             'action': action,
@@ -511,8 +526,11 @@ def generate_mock_signals():
                 'qty': qty_str,
                 'leverage': str(leverage),
                 'marginMode': 'isolated',
-                'stopLoss': str(round(stop_loss, 4)),
-                'takeProfit': str(round(take_profit, 4)),
+                'entryPrice': entry_str,
+                'entryLow': entry_low,
+                'entryHigh': entry_high,
+                'stopLoss': sl_str,
+                'takeProfit': tp_str,
                 'timeInForce': 'GTC',
                 'risk_management': {
                     'risk_amount_usd': f"{risk_percentage * 5:.2f}",
@@ -872,8 +890,11 @@ def get_token_analysis(symbol):
                 'orderType': 'Market',
                 'qty': qty_str,
                 'leverage': str(leverage),
-                'stopLoss': f"{stop_loss:.6f}" if current_price < 0.01 else f"{stop_loss:.4f}",
-                'takeProfit': f"{take_profit:.6f}" if current_price < 0.01 else f"{take_profit:.4f}",
+                'entryPrice': f"{current_price:.6f}" if current_price < 1 else f"{current_price:.4f}",
+                'entryLow': f"{current_price * 0.995:.6f}" if current_price < 1 else f"{current_price * 0.995:.4f}",
+                'entryHigh': f"{current_price * 1.005:.6f}" if current_price < 1 else f"{current_price * 1.005:.4f}",
+                'stopLoss': f"{stop_loss:.6f}" if current_price < 1 else f"{stop_loss:.4f}",
+                'takeProfit': f"{take_profit:.6f}" if current_price < 1 else f"{take_profit:.4f}",
                 'timeInForce': 'GTC',
                 'marginMode': 'isolated'
             }
