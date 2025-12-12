@@ -1084,6 +1084,30 @@ function createPriceChart(symbol, analysis) {
                 borderColor: 'rgba(239, 68, 68, 0.3)',
                 borderWidth: 1,
                 borderDash: [2, 2]
+            },
+            // Support Zone (Purple shaded area below support)
+            supportZone: {
+                type: 'box',
+                xMin: 0,
+                xMax: 11,
+                yMin: minPrice,
+                yMax: supportLevel,
+                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                borderColor: 'rgba(139, 92, 246, 0.2)',
+                borderWidth: 1,
+                borderDash: [4, 4]
+            },
+            // Resistance Zone (Pink shaded area above resistance)
+            resistanceZone: {
+                type: 'box',
+                xMin: 0,
+                xMax: 11,
+                yMin: resistanceLevel,
+                yMax: maxPrice,
+                backgroundColor: 'rgba(236, 72, 153, 0.1)',
+                borderColor: 'rgba(236, 72, 153, 0.2)',
+                borderWidth: 1,
+                borderDash: [4, 4]
             }
         };
         
