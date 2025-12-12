@@ -63,27 +63,20 @@
                         <i class="fas fa-chart-line me-2"></i>
                         Price Chart - <span id="chart-token-name">Select Token</span>
                     </h6>
-                    <div class="btn-group btn-group-sm" role="group">
-                        <button type="button" class="btn btn-outline-primary" id="pan-tool" onclick="togglePanMode()" title="Pan Mode">
-                            <i class="fas fa-arrows-alt"></i> Pan
-                        </button>
-                        <button type="button" class="btn btn-outline-primary" id="zoom-reset" onclick="resetZoom()" title="Reset Zoom">
-                            <i class="fas fa-search-minus"></i> Reset
-                        </button>
-                        <button type="button" class="btn btn-outline-primary" id="draw-line" onclick="toggleDrawingMode('line')" title="Draw Trend Lines">
-                            <i class="fas fa-minus"></i> Line
-                        </button>
-                        <button type="button" class="btn btn-outline-primary" id="draw-rectangle" onclick="toggleDrawingMode('rectangle')" title="Draw Support/Resistance Box">
-                            <i class="fas fa-square"></i> Box
-                        </button>
-                        <button type="button" class="btn btn-outline-danger" id="clear-drawings" onclick="clearDrawings()" title="Clear All Drawings">
-                            <i class="fas fa-eraser"></i> Clear
-                        </button>
-                    </div>
+                    <div id="signal-indicator" class="badge bg-secondary">Select Token</div>
                 </div>
                 <div class="card-body">
-                    <div id="chart-container" style="height: 400px; position: relative;">
+                    <div id="chart-container" style="height: 350px; position: relative;">
                         <canvas id="price-chart" style="width: 100%; height: 100%;"></canvas>
+                    </div>
+                    <!-- Chart Legend -->
+                    <div class="mt-3 d-flex flex-wrap gap-3 justify-content-center small" id="chart-legend">
+                        <span><i class="fas fa-minus" style="color: #fbbf24;"></i> Current Price</span>
+                        <span><i class="fas fa-minus" style="color: #3b82f6;"></i> Entry</span>
+                        <span><i class="fas fa-minus" style="color: #ef4444;"></i> Stop Loss</span>
+                        <span><i class="fas fa-minus" style="color: #10b981;"></i> Take Profit</span>
+                        <span><i class="fas fa-minus" style="color: rgba(139, 92, 246, 0.8);"></i> Support</span>
+                        <span><i class="fas fa-minus" style="color: rgba(236, 72, 153, 0.8);"></i> Resistance</span>
                     </div>
                 </div>
             </div>
@@ -197,6 +190,7 @@
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.2.1/dist/chartjs-plugin-annotation.min.js"></script>
 <script>
 // Analysis page functionality
 let currentChart = null;
@@ -575,11 +569,19 @@ function displayTradingSignal(analysis) {
         const signalBadge = document.getElementById('signal-badge');
         const confidenceDisplay = document.getElementById('confidence-display');
         const signalDescription = document.getElementById('signal-description');
+        const signalIndicator = document.getElementById('signal-indicator');
         
         const signal = analysis.recommendation?.action || 'HOLD';
         const confidence = Math.round(analysis.recommendation?.confidence || 0);
         
         console.log('Displaying signal:', signal, 'Confidence:', confidence);
+        
+        // Update chart header signal indicator
+        if (signalIndicator) {
+            const indicatorClass = signal === 'BUY' ? 'bg-success' : signal === 'SELL' ? 'bg-danger' : 'bg-secondary';
+            signalIndicator.className = `badge ${indicatorClass}`;
+            signalIndicator.textContent = `${signal} ${confidence}%`;
+        }
         
         // Signal badge
         if (signalBadge) {
@@ -872,20 +874,26 @@ function copyBybitSettings() {
 
 function createPriceChart(symbol, analysis) {
     try {
-        const chartCanvas = document.getElementById('price-chart');
+        let chartContainer = document.getElementById('chart-container');
+        if (!chartContainer) {
+            console.error('No chart container found');
+            return;
+        }
         
+        // Restore canvas element for Chart.js
+        chartContainer.innerHTML = '<canvas id="price-chart" style="width: 100%; height: 100%;"></canvas>';
+        
+        const chartCanvas = document.getElementById('price-chart');
         if (!chartCanvas) {
             console.log('Chart canvas not found');
             return;
         }
         
-        // Check if Chart.js is loaded
         if (typeof Chart === 'undefined') {
             console.error('Chart.js not loaded');
             return;
         }
         
-        // Destroy existing chart if it exists
         if (currentChart) {
             currentChart.destroy();
             currentChart = null;
@@ -894,77 +902,241 @@ function createPriceChart(symbol, analysis) {
         const ctx = chartCanvas.getContext('2d');
         const currentPrice = analysis.current_price || 0;
         const change24h = analysis.price_change_24h || 0;
+        const signal = analysis.recommendation?.action || 'HOLD';
         
-        console.log('Creating chart for', symbol, 'at price', currentPrice, 'with change', change24h);
-        
-        // Generate simple price data
-        const labels = ['6h ago', '4h ago', '2h ago', '1h ago', 'Now'];
-        const basePrice = currentPrice / (1 + change24h / 100);
-        const dataPoints = [
-            basePrice,
-            basePrice * (1 + change24h * 0.25 / 100),
-            basePrice * (1 + change24h * 0.5 / 100),
-            basePrice * (1 + change24h * 0.75 / 100),
-            currentPrice
-        ];
-        
-        const isPositive = change24h >= 0;
-        const chartColor = isPositive ? '#10b981' : '#ef4444';
-        
-        // Visual price display implementation - use canvas parent or create container
-        let chartContainer = document.getElementById('chart-container');
-        if (!chartContainer) {
-            chartContainer = document.getElementById('price-chart');
-            if (!chartContainer) {
-                console.error('No chart container found');
-                return;
-            }
-        }
-        
-        const trendIcon = isPositive ? '📈' : '📉';
+        // Get Entry, SL, TP from analysis or bybit_settings
+        const entryPrice = analysis.bybit_settings?.entryPrice ? parseFloat(analysis.bybit_settings.entryPrice) : currentPrice;
+        const stopLoss = analysis.bybit_settings?.stopLoss ? parseFloat(analysis.bybit_settings.stopLoss) : (signal === 'BUY' ? currentPrice * 0.97 : currentPrice * 1.03);
+        const takeProfit = analysis.bybit_settings?.takeProfit ? parseFloat(analysis.bybit_settings.takeProfit) : (signal === 'BUY' ? currentPrice * 1.10 : currentPrice * 0.90);
         const supportLevel = analysis.technical_indicators?.support_level || (currentPrice * 0.95);
         const resistanceLevel = analysis.technical_indicators?.resistance_level || (currentPrice * 1.05);
         
-        // Format price for display
-        const formatPrice = (price) => {
-            if (price < 1) return price.toFixed(6);
-            if (price < 10) return price.toFixed(4);
-            return price.toFixed(2);
+        console.log('Creating chart for', symbol, '- Signal:', signal, 'Entry:', entryPrice, 'SL:', stopLoss, 'TP:', takeProfit);
+        
+        // Generate realistic price history data (24 data points for 24 hours)
+        const basePrice = currentPrice / (1 + change24h / 100);
+        const volatility = Math.abs(change24h) / 100 || 0.02;
+        const labels = [];
+        const priceData = [];
+        
+        for (let i = 0; i < 24; i++) {
+            const hoursAgo = 24 - i;
+            labels.push(hoursAgo === 0 ? 'Now' : `${hoursAgo}h`);
+            
+            // Create smooth price movement with some randomness
+            const progress = i / 23;
+            const trend = basePrice + (currentPrice - basePrice) * progress;
+            const noise = (Math.random() - 0.5) * volatility * trend * 0.5;
+            priceData.push(trend + noise);
+        }
+        priceData[23] = currentPrice; // Ensure last point is current price
+        
+        const isPositive = change24h >= 0;
+        const priceColor = isPositive ? '#10b981' : '#ef4444';
+        const signalColor = signal === 'BUY' ? '#10b981' : signal === 'SELL' ? '#ef4444' : '#6b7280';
+        
+        // Calculate y-axis range to show all levels
+        const allLevels = [currentPrice, entryPrice, stopLoss, takeProfit, supportLevel, resistanceLevel, ...priceData];
+        const minPrice = Math.min(...allLevels) * 0.98;
+        const maxPrice = Math.max(...allLevels) * 1.02;
+        
+        // Format price for labels
+        const formatChartPrice = (price) => {
+            if (price < 0.001) return '$' + price.toFixed(8);
+            if (price < 1) return '$' + price.toFixed(6);
+            if (price < 10) return '$' + price.toFixed(4);
+            return '$' + price.toFixed(2);
         };
         
-        chartContainer.innerHTML = `
-            <div class="d-flex flex-column justify-content-center align-items-center h-100 text-center">
-                <div class="mb-4">
-                    <div style="font-size: 4rem;">${trendIcon}</div>
-                    <h3 class="mb-2">${symbol} Price Analysis</h3>
-                    <div class="fs-1 fw-bold mb-2" style="color: ${chartColor};">$${formatPrice(currentPrice)}</div>
-                    <div class="fs-5" style="color: ${chartColor};">
-                        ${isPositive ? '+' : ''}${change24h.toFixed(2)}% (24h)
-                    </div>
-                </div>
-                <div class="row text-center w-100">
-                    <div class="col-4">
-                        <div class="text-muted small">Support</div>
-                        <div class="fw-bold">$${formatPrice(supportLevel)}</div>
-                    </div>
-                    <div class="col-4">
-                        <div class="text-muted small">Current</div>
-                        <div class="fw-bold">$${formatPrice(currentPrice)}</div>
-                    </div>
-                    <div class="col-4">
-                        <div class="text-muted small">Resistance</div>
-                        <div class="fw-bold">$${formatPrice(resistanceLevel)}</div>
-                    </div>
-                </div>
-            </div>
-        `;
+        // Create annotations for horizontal lines
+        const annotations = {
+            currentPriceLine: {
+                type: 'line',
+                yMin: currentPrice,
+                yMax: currentPrice,
+                borderColor: '#fbbf24',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                label: {
+                    display: true,
+                    content: `Current: ${formatChartPrice(currentPrice)}`,
+                    position: 'end',
+                    backgroundColor: '#fbbf24',
+                    color: '#000',
+                    font: { size: 10, weight: 'bold' }
+                }
+            },
+            entryLine: {
+                type: 'line',
+                yMin: entryPrice,
+                yMax: entryPrice,
+                borderColor: '#3b82f6',
+                borderWidth: 2,
+                label: {
+                    display: true,
+                    content: `Entry: ${formatChartPrice(entryPrice)}`,
+                    position: 'start',
+                    backgroundColor: '#3b82f6',
+                    color: '#fff',
+                    font: { size: 10, weight: 'bold' }
+                }
+            },
+            stopLossLine: {
+                type: 'line',
+                yMin: stopLoss,
+                yMax: stopLoss,
+                borderColor: '#ef4444',
+                borderWidth: 2,
+                borderDash: [3, 3],
+                label: {
+                    display: true,
+                    content: `SL: ${formatChartPrice(stopLoss)}`,
+                    position: 'start',
+                    backgroundColor: '#ef4444',
+                    color: '#fff',
+                    font: { size: 10, weight: 'bold' }
+                }
+            },
+            takeProfitLine: {
+                type: 'line',
+                yMin: takeProfit,
+                yMax: takeProfit,
+                borderColor: '#10b981',
+                borderWidth: 2,
+                borderDash: [3, 3],
+                label: {
+                    display: true,
+                    content: `TP: ${formatChartPrice(takeProfit)}`,
+                    position: 'start',
+                    backgroundColor: '#10b981',
+                    color: '#fff',
+                    font: { size: 10, weight: 'bold' }
+                }
+            },
+            supportLine: {
+                type: 'line',
+                yMin: supportLevel,
+                yMax: supportLevel,
+                borderColor: 'rgba(139, 92, 246, 0.6)',
+                borderWidth: 1,
+                borderDash: [8, 4],
+                label: {
+                    display: true,
+                    content: `Support: ${formatChartPrice(supportLevel)}`,
+                    position: 'end',
+                    backgroundColor: 'rgba(139, 92, 246, 0.8)',
+                    color: '#fff',
+                    font: { size: 9 }
+                }
+            },
+            resistanceLine: {
+                type: 'line',
+                yMin: resistanceLevel,
+                yMax: resistanceLevel,
+                borderColor: 'rgba(236, 72, 153, 0.6)',
+                borderWidth: 1,
+                borderDash: [8, 4],
+                label: {
+                    display: true,
+                    content: `Resistance: ${formatChartPrice(resistanceLevel)}`,
+                    position: 'end',
+                    backgroundColor: 'rgba(236, 72, 153, 0.8)',
+                    color: '#fff',
+                    font: { size: 9 }
+                }
+            },
+            signalBox: {
+                type: 'label',
+                xValue: 2,
+                yValue: maxPrice * 0.98,
+                content: [`${signal} Signal`, `${Math.round(analysis.recommendation?.confidence || 0)}% Confidence`],
+                backgroundColor: signalColor,
+                color: '#fff',
+                font: { size: 12, weight: 'bold' },
+                padding: { top: 6, bottom: 6, left: 10, right: 10 },
+                borderRadius: 4
+            }
+        };
         
-        console.log('Price chart display updated successfully');
+        currentChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: `${symbol} Price`,
+                    data: priceData,
+                    borderColor: priceColor,
+                    backgroundColor: priceColor + '20',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 6,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        callbacks: {
+                            label: function(context) {
+                                return formatChartPrice(context.parsed.y);
+                            }
+                        }
+                    },
+                    annotation: {
+                        annotations: annotations
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            color: 'rgba(255,255,255,0.1)'
+                        },
+                        ticks: {
+                            color: '#9ca3af',
+                            maxTicksLimit: 8
+                        }
+                    },
+                    y: {
+                        min: minPrice,
+                        max: maxPrice,
+                        grid: {
+                            color: 'rgba(255,255,255,0.1)'
+                        },
+                        ticks: {
+                            color: '#9ca3af',
+                            callback: function(value) {
+                                return formatChartPrice(value);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        console.log('Enhanced price chart created successfully with Entry/SL/TP/Support/Resistance levels');
         
     } catch (error) {
         console.error('Error creating price chart:', error);
-        // Fallback to simple price display
+        // Fallback to simple display
+        const chartContainer = document.getElementById('chart-container');
         if (chartContainer) {
+            const currentPrice = analysis.current_price || 0;
+            const change24h = analysis.price_change_24h || 0;
+            const isPositive = change24h >= 0;
+            const chartColor = isPositive ? '#10b981' : '#ef4444';
             chartContainer.innerHTML = `
                 <div class="text-center py-5">
                     <h4>${symbol}</h4>
@@ -974,7 +1146,7 @@ function createPriceChart(symbol, analysis) {
             `;
         }
     }
-        
+    
     console.log('Price chart created successfully');
 }
 
