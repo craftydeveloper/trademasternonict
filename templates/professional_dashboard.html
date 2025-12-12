@@ -417,21 +417,33 @@
             </div>
         </div>
 
-        <!-- Other Opportunities -->
+        <!-- All Token Scores - Shows analysis for all tokens -->
         <div class="row mb-4">
             <div class="col-12">
                 <h4 class="section-title">
-                    <i class="fas fa-list me-2"></i>Other Opportunities
+                    <i class="fas fa-chart-bar me-2"></i>All Token Analysis Scores
                 </h4>
-                <div id="other-opportunities-container">
+                <div id="all-token-scores-container" class="trading-card" style="max-height: 400px; overflow-y: auto;">
                     <div class="text-center py-3">
-                        <p class="text-muted">Additional opportunities will appear here</p>
+                        <p class="text-muted">Analyzing tokens...</p>
                     </div>
                 </div>
             </div>
         </div>
 
-
+        <!-- Signal History - Past calls made by the system -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h4 class="section-title">
+                    <i class="fas fa-history me-2"></i>Signal History
+                </h4>
+                <div id="signal-history-container" class="trading-card" style="max-height: 350px; overflow-y: auto;">
+                    <div class="text-center py-3">
+                        <p class="text-muted">Loading signal history...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Top Movers -->
         <div class="row mb-4">
@@ -576,8 +588,10 @@
                     // Handle predictive signals format
                     const signals = data.signals || [];
                     const notifications = data.notifications || [];
+                    const allTokenScores = data.all_token_scores || [];
                     console.log('Predictive signals:', signals);
                     console.log('Bias notifications:', notifications);
+                    console.log('All token scores:', allTokenScores);
                     
                     // Store signals for modals
                     this.lastSignalData = signals;
@@ -590,6 +604,12 @@
                     
                     // Display signals immediately
                     this.displayFastSignals(signals);
+                    
+                    // Display all token scores for transparency
+                    this.displayAllTokenScores(allTokenScores);
+                    
+                    // Load signal history
+                    this.loadSignalHistory();
                     
                 } catch (error) {
                     console.error('Trading signals error:', error);
@@ -612,6 +632,104 @@
                 }
             }
 
+            displayAllTokenScores(tokenScores) {
+                const container = document.getElementById('all-token-scores-container');
+                if (!container) return;
+                
+                if (!tokenScores || tokenScores.length === 0) {
+                    container.innerHTML = '<div class="text-center py-3 text-muted">No token data available</div>';
+                    return;
+                }
+                
+                let html = '<div class="table-responsive"><table class="table table-dark table-sm mb-0">';
+                html += '<thead><tr>';
+                html += '<th>Token</th>';
+                html += '<th>Score</th>';
+                html += '<th>Direction</th>';
+                html += '<th>Price</th>';
+                html += '<th>HTF Trend</th>';
+                html += '<th>Cycles</th>';
+                html += '<th>Status</th>';
+                html += '</tr></thead><tbody>';
+                
+                tokenScores.forEach(token => {
+                    const scoreColor = token.score >= 7 ? '#00ff88' : (token.score >= 5 ? '#ffc107' : '#6c757d');
+                    const directionIcon = token.direction === 'LONG' ? '📈' : (token.direction === 'SHORT' ? '📉' : '⏳');
+                    const directionColor = token.action === 'BUY' ? '#00ff88' : (token.action === 'SELL' ? '#ff4757' : '#ffc107');
+                    
+                    let statusText = token.action === 'HOLD' ? 'Analyzing' : 'Ready';
+                    if (token.blocked_reason) {
+                        statusText = 'Blocked';
+                    }
+                    
+                    const priceFormatted = token.entry_price < 1 ? token.entry_price.toFixed(4) : token.entry_price.toFixed(2);
+                    
+                    html += '<tr>';
+                    html += `<td><strong>${token.symbol}</strong></td>`;
+                    html += `<td><span style="color: ${scoreColor}; font-weight: bold;">${token.score}/10</span></td>`;
+                    html += `<td><span style="color: ${directionColor};">${directionIcon} ${token.action}</span></td>`;
+                    html += `<td>$${priceFormatted}</td>`;
+                    html += `<td><small>${token.htf_trend || 'N/A'}</small></td>`;
+                    html += `<td><small>${token.analysis_cycles || 0}/${token.min_cycles_required || 100}</small></td>`;
+                    html += `<td><small class="text-muted">${statusText}</small></td>`;
+                    html += '</tr>';
+                    
+                    if (token.blocked_reason) {
+                        html += `<tr><td colspan="7" class="py-1 ps-4"><small class="text-warning">Blocked: ${token.blocked_reason}</small></td></tr>`;
+                    }
+                });
+                
+                html += '</tbody></table></div>';
+                container.innerHTML = html;
+            }
+            
+            async loadSignalHistory() {
+                try {
+                    const response = await fetch('/api/signal-history?limit=20');
+                    const data = await response.json();
+                    
+                    const container = document.getElementById('signal-history-container');
+                    if (!container) return;
+                    
+                    if (!data.history || data.history.length === 0) {
+                        container.innerHTML = '<div class="text-center py-3 text-muted">No signals issued yet. Waiting for high-probability setups...</div>';
+                        return;
+                    }
+                    
+                    let html = '<div class="table-responsive"><table class="table table-dark table-sm mb-0">';
+                    html += '<thead><tr>';
+                    html += '<th>Time</th>';
+                    html += '<th>Token</th>';
+                    html += '<th>Action</th>';
+                    html += '<th>Entry Price</th>';
+                    html += '<th>Score</th>';
+                    html += '<th>Confidence</th>';
+                    html += '</tr></thead><tbody>';
+                    
+                    data.history.forEach(signal => {
+                        const time = new Date(signal.created_at).toLocaleString();
+                        const actionColor = signal.action === 'LONG' ? '#00ff88' : '#ff4757';
+                        const actionIcon = signal.action === 'LONG' ? '📈' : '📉';
+                        const priceFormatted = signal.entry_price < 1 ? signal.entry_price.toFixed(4) : signal.entry_price.toFixed(2);
+                        
+                        html += '<tr>';
+                        html += `<td><small>${time}</small></td>`;
+                        html += `<td><strong>${signal.symbol}</strong></td>`;
+                        html += `<td><span style="color: ${actionColor};">${actionIcon} ${signal.action}</span></td>`;
+                        html += `<td>$${priceFormatted}</td>`;
+                        html += `<td><span class="text-info">${signal.score}/10</span></td>`;
+                        html += `<td><span class="text-success">${signal.confidence}%</span></td>`;
+                        html += '</tr>';
+                    });
+                    
+                    html += '</tbody></table></div>';
+                    container.innerHTML = html;
+                    
+                } catch (error) {
+                    console.error('Error loading signal history:', error);
+                }
+            }
+
             displayFastSignals(signals) {
                 console.log('displayFastSignals called with signals:', signals);
                 
@@ -619,10 +737,9 @@
                 this.lastSignalData = signals || [];
                 
                 const topTradesContainer = document.getElementById('top-trades-container');
-                const otherOpportunitiesContainer = document.getElementById('other-opportunities-container');
                 
-                if (!topTradesContainer || !otherOpportunitiesContainer) {
-                    console.error('Containers not found');
+                if (!topTradesContainer) {
+                    console.error('Top trades container not found');
                     return;
                 }
                 

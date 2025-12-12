@@ -132,6 +132,36 @@ class TradingStrategy(db.Model):
             'created_at': self.created_at.isoformat()
         }
 
+class SignalHistory(db.Model):
+    """Track all signals issued by the system for history view"""
+    id = db.Column(db.Integer, primary_key=True)
+    symbol = db.Column(db.String(20), nullable=False, index=True)
+    action = db.Column(db.String(10), nullable=False)  # 'LONG', 'SHORT', 'HOLD'
+    entry_price = db.Column(db.Float, nullable=False)
+    score = db.Column(db.Float, nullable=False)
+    htf_trend = db.Column(db.String(20))
+    liquidity_sweep = db.Column(db.Boolean, default=False)
+    structure_shift = db.Column(db.String(20))
+    confidence = db.Column(db.Float, default=0.0)
+    analysis_details = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'symbol': self.symbol,
+            'action': self.action,
+            'entry_price': self.entry_price,
+            'score': self.score,
+            'htf_trend': self.htf_trend,
+            'liquidity_sweep': self.liquidity_sweep,
+            'structure_shift': self.structure_shift,
+            'confidence': self.confidence,
+            'analysis_details': self.analysis_details,
+            'created_at': self.created_at.isoformat()
+        }
+
+
 class TradeRecommendation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     symbol = db.Column(db.String(20), nullable=False)

@@ -27,7 +27,8 @@ from predictive_signals import (
     get_active_trades,
     track_displayed_signal,
     clear_bias_notifications,
-    clear_all_signal_state
+    clear_all_signal_state,
+    get_signal_history
 )
 
 # Clear signal state on server startup for fresh notifications
@@ -1232,6 +1233,7 @@ def get_predictive_trading_signals():
     """Get predictive trading signals using OHLCV structure analysis
     Only returns LONG/SHORT when score >= 7, otherwise HOLD
     Maintains bias until setup is invalidated
+    Now returns ALL token scores for visibility
     """
     try:
         data_provider = BackupDataProvider()
@@ -1249,7 +1251,7 @@ def get_predictive_trading_signals():
         all_tokens = get_comprehensive_bybit_tokens()
         
         actionable_signals = []
-        hold_signals = []
+        all_token_scores = []  # All tokens with their scores for display
         
         for token in all_tokens[:15]:  # Top 15 tokens for structure analysis
             symbol = token['symbol']
@@ -1281,12 +1283,32 @@ def get_predictive_trading_signals():
             
             score = signal.get('score', 0)
             
+            # Add ALL tokens to the scores list for transparency
+            all_token_scores.append({
+                'symbol': symbol,
+                'score': score,
+                'action': signal.get('action', 'HOLD'),
+                'direction': signal.get('direction', 'NEUTRAL'),
+                'confidence': signal.get('confidence', 0),
+                'entry_price': current_price,
+                'htf_trend': signal.get('analysis', {}).get('htf_trend', 'N/A'),
+                'liquidity_sweep': signal.get('analysis', {}).get('liquidity_sweep'),
+                'mss_choch': signal.get('analysis', {}).get('mss_choch'),
+                'score_breakdown': signal.get('score_breakdown', []),
+                'analysis_cycles': signal.get('analysis_cycles', 0),
+                'min_cycles_required': signal.get('min_cycles_required', 100),
+                'hours_since_last_signal': signal.get('hours_since_last_signal'),
+                'last_signal_direction': signal.get('last_signal_direction'),
+                'blocked_reason': signal.get('blocked_reason'),
+                'would_be_direction': signal.get('would_be_direction'),
+                'prediction': signal.get('prediction', '')
+            })
+            
             if signal['action'] != 'HOLD' and score >= 7:
                 actionable_signals.append(signal)
-            else:
-                hold_signals.append(signal)
         
         actionable_signals.sort(key=lambda x: (x.get('score', 0), x.get('confidence', 0)), reverse=True)
+        all_token_scores.sort(key=lambda x: x.get('score', 0), reverse=True)
         
         final_signals = actionable_signals[:6]
         
@@ -1296,12 +1318,13 @@ def get_predictive_trading_signals():
         
         notifications = get_bias_change_notifications()
         
-        hold_count = len(hold_signals)
-        analyzed_count = len(actionable_signals) + hold_count
+        hold_count = len([s for s in all_token_scores if s['action'] == 'HOLD'])
+        analyzed_count = len(all_token_scores)
         
         return jsonify({
             'success': True,
             'signals': final_signals,
+            'all_token_scores': all_token_scores,  # NEW: All token scores for transparency
             'notifications': notifications,
             'active_trades': len(get_active_trades()),
             'total_analyzed': analyzed_count,
@@ -1309,12 +1332,31 @@ def get_predictive_trading_signals():
             'actionable_count': len(actionable_signals),
             'analysis_mode': 'structure_based',
             'min_score_required': 7,
+            'min_hold_hours': 4,
+            'min_analysis_cycles': 100,
             'timestamp': datetime.now().isoformat()
         })
         
     except Exception as e:
         logger.error(f"Error getting predictive signals: {e}")
-        return jsonify({'success': False, 'signals': [], 'error': str(e)})
+        return jsonify({'success': False, 'signals': [], 'all_token_scores': [], 'error': str(e)})
+
+
+@app.route('/api/signal-history')
+def get_signal_history_endpoint():
+    """Get historical signal calls made by the system"""
+    try:
+        limit = request.args.get('limit', 50, type=int)
+        history = get_signal_history(limit)
+        
+        return jsonify({
+            'success': True,
+            'history': history,
+            'count': len(history)
+        })
+    except Exception as e:
+        logger.error(f"Error getting signal history: {e}")
+        return jsonify({'success': False, 'history': [], 'error': str(e)})
 
 @app.route('/api/register-trade', methods=['POST'])
 def register_trade_endpoint():
