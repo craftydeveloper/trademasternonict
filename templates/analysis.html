@@ -192,6 +192,11 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.2.1/dist/chartjs-plugin-annotation.min.js"></script>
 <script>
+// Register the annotation plugin with Chart.js
+if (window['chartjs-plugin-annotation']) {
+    Chart.register(window['chartjs-plugin-annotation']);
+}
+
 // Analysis page functionality
 let currentChart = null;
 let tokens = [];
@@ -1196,73 +1201,6 @@ function displayTechnicalIndicators(indicators) {
     }
 }
 
-function createPriceChart(priceData) {
-    try {
-        const ctx = document.getElementById('price-chart').getContext('2d');
-        
-        // Use visual price display instead of Chart.js
-        console.log('Creating chart with data:', 3, 'points');
-        
-        currentChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Price',
-                data: prices,
-                borderColor: 'rgb(75, 192, 192)',
-                backgroundColor: 'rgba(75, 192, 192, 0.1)',
-                tension: 0.1,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                intersect: false,
-                mode: 'index'
-            },
-            plugins: {
-                legend: {
-                    display: false
-                }
-            },
-            scales: {
-                x: {
-                    grid: { 
-                        color: 'rgba(255, 255, 255, 0.1)' 
-                    },
-                    ticks: { 
-                        color: '#fff',
-                        maxTicksLimit: 10
-                    }
-                },
-                y: {
-                    beginAtZero: false,
-                    grid: { 
-                        color: 'rgba(255, 255, 255, 0.1)' 
-                    },
-                    ticks: {
-                        color: '#fff',
-                        callback: function(value) {
-                            return '$' + value.toFixed(2);
-                        }
-                    }
-                }
-            }
-        }
-    });
-    
-    } catch (error) {
-        console.error('Error creating chart:', error);
-        const ctx = document.getElementById('price-chart').getContext('2d');
-        ctx.fillStyle = '#8b949e';
-        ctx.font = '16px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('Chart loading error', ctx.canvas.width / 2, ctx.canvas.height / 2);
-    }
-}
 
 function loadAllSignals() {
     window.location.href = '/';
@@ -1638,141 +1576,6 @@ function clearDrawings() {
     }
 }
 
-// Update the createPriceChart function to initialize drawing canvas
-function createPriceChart(priceData) {
-    const ctx = document.getElementById('price-chart');
-    if (!ctx) {
-        console.log('Price chart canvas not found');
-        return;
-    }
-    
-    const context = ctx.getContext('2d');
-    
-    if (currentChart) {
-        currentChart.destroy();
-    }
-    
-    console.log('Creating chart with data: 5 points');
-    
-    const labels = ['6h ago', '4h ago', '2h ago', '1h ago', 'Now'];
-    const prices = [100, 102, 98, 105, 103];
-    
-    console.log('Chart labels sample:', labels.slice(0, 3));
-    console.log('Chart prices sample:', prices.slice(0, 3));
-    
-    currentChart = new Chart(context, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: selectedTokenSymbol || 'Price',
-                data: prices,
-                borderColor: '#00d4ff',
-                backgroundColor: 'rgba(0, 212, 255, 0.1)',
-                tension: 0.1,
-                fill: true,
-                pointRadius: 1,
-                pointHoverRadius: 4,
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                intersect: false,
-                mode: 'index'
-            },
-            plugins: {
-                legend: {
-                    display: false
-                }
-            },
-            scales: {
-                x: {
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.1)'
-                    },
-                    ticks: {
-                        color: '#8b949e'
-                    }
-                },
-                y: {
-                    beginAtZero: false,
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.1)'
-                    },
-                    ticks: {
-                        color: '#8b949e',
-                        callback: function(value) {
-                            return '$' + value.toFixed(2);
-                        }
-                    }
-                }
-            },
-            onHover: (event, activeElements) => {
-                if (isPanMode) {
-                    event.native.target.style.cursor = 'grab';
-                } else if (drawingMode) {
-                    event.native.target.style.cursor = 'crosshair';
-                } else {
-                    event.native.target.style.cursor = 'default';
-                }
-            }
-        }
-    });
-    
-    console.log('Chart created successfully');
-    
-    // Add interactive functionality
-    try {
-        addChartInteractivity(ctx);
-        
-        // Initialize drawing canvas after chart is created
-        setTimeout(() => {
-            initializeDrawingCanvas();
-            console.log('Interactive chart tools initialized');
-        }, 100);
-    } catch (error) {
-        console.log('Chart interactivity setup skipped:', error.message);
-    }
-}
-
-// Duplicate function removed - using loadAvailableTokens() above
-
-// Select a token from the dropdown
-function selectToken(symbol, name) {
-    selectedTokenSymbol = symbol;
-    const selectedText = document.getElementById('selected-token-text');
-    if (selectedText) {
-        selectedText.textContent = `${symbol} - ${name}`;
-    }
-    
-    // Trigger analysis for the selected token
-    loadTokenAnalysis();
-}
-
-// Filter tokens in dropdown
-function filterTokens() {
-    const searchInput = document.getElementById('token-search');
-    const tokenItems = document.querySelectorAll('.token-item');
-    
-    if (searchInput && tokenItems) {
-        const searchTerm = searchInput.value.toLowerCase();
-        
-        tokenItems.forEach(item => {
-            const symbol = item.dataset.symbol.toLowerCase();
-            const text = item.textContent.toLowerCase();
-            
-            if (symbol.includes(searchTerm) || text.includes(searchTerm)) {
-                item.style.display = 'block';
-            } else {
-                item.style.display = 'none';
-            }
-        });
-    }
-}
-
-// Page initialization handled by loadAvailableTokens() above
+// Note: createPriceChart, selectToken, and filterTokens are defined above - no duplicates needed
 </script>
 {% endblock %}
