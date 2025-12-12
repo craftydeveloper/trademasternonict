@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradePro - Professional Trading Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --accent-blue: #00d4ff;
+            --accent-green: #00ff88;
+            --border-color: #30363d;
+            --success-color: #238636;
+            --danger-color: #da3633;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+            color: var(--text-primary);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+        }
+
+        .glass-card {
+            background: rgba(33, 38, 45, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .navbar {
+            background: rgba(13, 17, 23, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-blue) 0%, #0099cc 100%);
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--accent-green) 0%, #00cc66 100%);
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        .signal-card {
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .signal-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .confidence-meter {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-green) 0%, var(--accent-blue) 100%);
+            transition: width 0.8s ease;
+        }
+
+        .primary-trade {
+            border: 2px solid var(--accent-green);
+            background: rgba(0, 255, 136, 0.05);
+        }
+
+        .text-success-clean { color: var(--accent-green) !important; }
+        .text-warning-clean { color: #ffc107 !important; }
+        .text-danger-clean { color: var(--danger-color) !important; }
+
+        .market-metric {
+            text-align: center;
+            padding: 1rem;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .metric-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--accent-blue);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.6s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg fixed-top">
+        <div class="container">
+            <a class="navbar-brand fw-bold text-white" href="/">
+                <i class="fas fa-chart-line me-2" style="color: var(--accent-blue);"></i>
+                TradePro
+            </a>
+            
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link text-white me-3" href="/analysis">
+                    <i class="fas fa-chart-bar me-1"></i> Analysis
+                </a>
+                <a class="nav-link text-white" href="/portfolio">
+                    <i class="fas fa-wallet me-1"></i> Portfolio
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5 pt-5">
+        <!-- Market Overview -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="glass-card p-4">
+                    <h5 class="mb-3">
+                        <i class="fas fa-globe me-2" style="color: var(--accent-blue);"></i>
+                        Market Overview
+                    </h5>
+                    <div class="row" id="marketMetrics">
+                        <div class="col-md-3">
+                            <div class="market-metric">
+                                <div class="loading-spinner mx-auto"></div>
+                                <div class="metric-label">Market Sentiment</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="market-metric">
+                                <div class="loading-spinner mx-auto"></div>
+                                <div class="metric-label">Volatility</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="market-metric">
+                                <div class="loading-spinner mx-auto"></div>
+                                <div class="metric-label">24H Change</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="market-metric">
+                                <div class="loading-spinner mx-auto"></div>
+                                <div class="metric-label">Active Signals</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Primary Trading Signals -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="glass-card p-4">
+                    <h5 class="mb-3">
+                        <i class="fas fa-bullseye me-2" style="color: var(--accent-green);"></i>
+                        Your Trade
+                    </h5>
+                    <div id="primarySignals" class="row">
+                        <div class="col-12 text-center py-4">
+                            <div class="loading-spinner mx-auto mb-3"></div>
+                            <p class="text-muted">Loading trading signals...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Additional Opportunities -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="glass-card p-4">
+                    <h5 class="mb-3">
+                        <i class="fas fa-chart-line me-2" style="color: var(--accent-blue);"></i>
+                        Other Opportunities
+                    </h5>
+                    <div id="secondarySignals" class="row">
+                        <div class="col-12 text-center py-4">
+                            <div class="loading-spinner mx-auto mb-3"></div>
+                            <p class="text-muted">Loading additional signals...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bybit Settings Modal -->
+    <div class="modal fade" id="bybitModal" tabindex="-1" aria-labelledby="bybitModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color);">
+                <div class="modal-header" style="border-bottom: 1px solid var(--border-color);">
+                    <h5 class="modal-title text-white" id="bybitModalLabel">
+                        <i class="fas fa-cogs me-2" style="color: var(--accent-blue);"></i>
+                        Bybit Trading Settings
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="bybitSettingsContent">
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-top: 1px solid var(--border-color);">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="copySettingsBtn">Copy Settings</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        class TradingDashboard {
+            constructor() {
+                this.signals = [];
+                this.marketData = {};
+                this.init();
+            }
+
+            init() {
+                console.log('Professional Dashboard initialized at:', new Date().toISOString());
+                this.loadMarketInsights();
+                this.loadTradingSignals();
+                
+                // Auto-refresh every 30 seconds
+                setInterval(() => {
+                    this.loadMarketInsights();
+                    this.loadTradingSignals();
+                }, 30000);
+            }
+
+            async loadMarketInsights() {
+                try {
+                    const response = await fetch('/api/market-insights');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        console.log('Market insights loaded:', data);
+                        this.updateMarketMetrics(data);
+                    }
+                } catch (error) {
+                    console.error('Error loading market insights:', error);
+                }
+            }
+
+            async loadTradingSignals() {
+                try {
+                    const response = await fetch('/api/signals');
+                    const data = await response.json();
+                    
+                    if (data.success && data.signals) {
+                        console.log('Displaying signals:', data.signals);
+                        this.signals = data.signals;
+                        this.displaySignals();
+                    }
+                } catch (error) {
+                    console.error('Error loading signals:', error);
+                }
+            }
+
+            updateMarketMetrics(data) {
+                const metricsHtml = `
+                    <div class="col-md-3">
+                        <div class="market-metric">
+                            <div class="metric-value ${data.sentiment_class}">${data.market_sentiment}</div>
+                            <div class="metric-label">Market Sentiment</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="market-metric">
+                            <div class="metric-value ${data.volatility_class}">${data.volatility_level}</div>
+                            <div class="metric-label">Volatility</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="market-metric">
+                            <div class="metric-value ${data.change_class}">${data.avg_24h_change}</div>
+                            <div class="metric-label">24H Change</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="market-metric">
+                            <div class="metric-value text-success-clean">${this.signals.length}</div>
+                            <div class="metric-label">Active Signals</div>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('marketMetrics').innerHTML = metricsHtml;
+                console.log('Market metrics updated successfully');
+            }
+
+            displaySignals() {
+                if (!this.signals || this.signals.length === 0) {
+                    document.getElementById('primarySignals').innerHTML = '<div class="col-12 text-center py-4"><p class="text-muted">No signals available</p></div>';
+                    document.getElementById('secondarySignals').innerHTML = '<div class="col-12 text-center py-4"><p class="text-muted">No additional opportunities</p></div>';
+                    return;
+                }
+
+                // Primary signals (top 2)
+                const primarySignals = this.signals.slice(0, 2);
+                const secondarySignals = this.signals.slice(2);
+
+                // Display primary signals
+                const primaryHtml = primarySignals.map(signal => this.createSignalCard(signal, true)).join('');
+                document.getElementById('primarySignals').innerHTML = primaryHtml;
+
+                // Display secondary signals
+                if (secondarySignals.length > 0) {
+                    const secondaryHtml = secondarySignals.map(signal => this.createSignalCard(signal, false)).join('');
+                    document.getElementById('secondarySignals').innerHTML = secondaryHtml;
+                } else {
+                    document.getElementById('secondarySignals').innerHTML = '<div class="col-12 text-center py-4"><p class="text-muted">No additional opportunities at this time</p></div>';
+                }
+            }
+
+            createSignalCard(signal, isPrimary) {
+                const confidenceColor = signal.confidence >= 90 ? 'text-success-clean' : 
+                                      signal.confidence >= 80 ? 'text-warning-clean' : 'text-danger-clean';
+                
+                const actionColor = signal.action === 'BUY' ? 'text-success-clean' : 'text-danger-clean';
+                const actionIcon = signal.action === 'BUY' ? 'fa-arrow-up' : 'fa-arrow-down';
+                
+                const cardClass = isPrimary ? 'signal-card glass-card primary-trade' : 'signal-card glass-card';
+                const tradeLabel = isPrimary ? 'PRIMARY' : 'RECOMMENDED';
+                const targetProfit = isPrimary ? '$48 TARGET' : '$24 TARGET';
+
+                return `
+                    <div class="col-lg-6 mb-3">
+                        <div class="${cardClass} p-4 fade-in">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div>
+                                    <h6 class="mb-1">
+                                        <i class="fas fa-coins me-2" style="color: var(--accent-blue);"></i>
+                                        ${signal.symbol} ${signal.action}
+                                        <span class="badge bg-secondary ms-2">${tradeLabel}</span>
+                                    </h6>
+                                    <small class="text-muted">${targetProfit}</small>
+                                </div>
+                                <div class="text-end">
+                                    <div class="${confidenceColor} fw-bold">${signal.confidence}%</div>
+                                    <small class="text-muted">Confidence</small>
+                                </div>
+                            </div>
+
+                            <div class="confidence-meter mb-3">
+                                <div class="confidence-fill" style="width: ${signal.confidence}%;"></div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <small class="text-muted d-block">Entry Price</small>
+                                    <strong>$${signal.entry_price.toFixed(4)}</strong>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted d-block">Leverage</small>
+                                    <strong>${signal.leverage}x</strong>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <small class="text-muted d-block">Stop Loss</small>
+                                    <span class="text-danger-clean">$${signal.stop_loss}</span>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted d-block">Take Profit</small>
+                                    <span class="text-success-clean">$${signal.take_profit}</span>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <button class="btn btn-outline-light btn-sm w-100" onclick="dashboard.showBybitSettings(${JSON.stringify(signal.bybit_settings).replace(/"/g, '&quot;')})">
+                                        <i class="fas fa-cog me-1"></i> Bybit Settings
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button class="btn btn-success btn-sm w-100" onclick="dashboard.executeTradeModal('${signal.symbol}')">
+                                        <i class="fas fa-rocket me-1"></i> Execute
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            executeTradeModal(symbol) {
+                alert(`Trade execution interface for ${symbol} would open here.\n\nIn production, this would connect to your Bybit account with the configured parameters.`);
+            }
+
+            showBybitSettings(settings) {
+                const modal = new bootstrap.Modal(document.getElementById('bybitModal'));
+                const content = document.getElementById('bybitSettingsContent');
+                
+                const settingsHtml = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-white mb-3">Trading Parameters</h6>
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Symbol</label>
+                                <input type="text" class="form-control" value="${settings.symbol}" readonly>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Side</label>
+                                <input type="text" class="form-control" value="${settings.side}" readonly>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Order Type</label>
+                                <input type="text" class="form-control" value="${settings.orderType}" readonly>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Quantity</label>
+                                <input type="text" class="form-control" value="${settings.qty}" readonly>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-white mb-3">Risk Management</h6>
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Leverage</label>
+                                <input type="text" class="form-control" value="${settings.leverage}x" readonly>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Margin Mode</label>
+                                <input type="text" class="form-control" value="${settings.marginMode}" readonly>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Stop Loss</label>
+                                <input type="text" class="form-control" value="${settings.stopLoss}" readonly>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-muted">Take Profit</label>
+                                <input type="text" class="form-control" value="${settings.takeProfit}" readonly>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <h6 class="text-white mb-3">Risk Summary</h6>
+                            <div class="alert alert-info">
+                                <strong>Position Value:</strong> ${settings.risk_management.position_value_usd}<br>
+                                <strong>Margin Required:</strong> ${settings.risk_management.margin_required_usd}<br>
+                                <strong>Risk Amount:</strong> ${settings.risk_management.risk_amount_usd}<br>
+                                <strong>Risk Percentage:</strong> ${settings.risk_management.risk_percentage}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                content.innerHTML = settingsHtml;
+                modal.show();
+                
+                // Copy settings functionality
+                document.getElementById('copySettingsBtn').onclick = () => {
+                    const settingsText = JSON.stringify(settings, null, 2);
+                    navigator.clipboard.writeText(settingsText).then(() => {
+                        alert('Bybit settings copied to clipboard!');
+                    });
+                };
+            }
+        }
+
+        // Initialize dashboard
+        const dashboard = new TradingDashboard();
+    </script>
+</body>
+</html>

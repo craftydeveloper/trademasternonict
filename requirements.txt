@@ -1,0 +1,15 @@
+flask
+flask_sqlalchemy
+sqlalchemy
+psycopg2-binary
+werkzeug
+requests
+flask
+flask-socketio
+flask-sqlalchemy
+gunicorn
+numpy
+psycopg2-binary
+requests
+sqlalchemy
+werkzeug

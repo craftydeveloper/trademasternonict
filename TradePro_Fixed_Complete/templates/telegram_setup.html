@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Setup - $50K Trading Bot</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+            min-height: 100vh;
+            color: #f0f6fc;
+        }
+        
+        .setup-container {
+            max-width: 600px;
+            margin: 2rem auto;
+            padding: 2rem;
+        }
+        
+        .glass-card {
+            background: rgba(21, 25, 31, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(48, 54, 61, 0.7);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        .step {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: rgba(13, 17, 23, 0.5);
+            border-radius: 12px;
+            border-left: 4px solid #00d4ff;
+        }
+        
+        .step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            background: #00d4ff;
+            color: #0d1117;
+            border-radius: 50%;
+            font-weight: bold;
+            margin-right: 1rem;
+        }
+        
+        .form-control {
+            background: rgba(13, 17, 23, 0.8);
+            border: 1px solid #30363d;
+            color: #f0f6fc;
+        }
+        
+        .form-control:focus {
+            background: rgba(13, 17, 23, 0.9);
+            border-color: #00d4ff;
+            color: #f0f6fc;
+            box-shadow: 0 0 0 0.2rem rgba(0, 212, 255, 0.25);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff, #0099cc);
+            border: none;
+            font-weight: 600;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #00ff88, #00cc6a);
+            border: none;
+            font-weight: 600;
+        }
+        
+        .alert {
+            border-radius: 12px;
+            border: none;
+        }
+        
+        .alert-info {
+            background: rgba(0, 212, 255, 0.1);
+            color: #58a6ff;
+            border-left: 4px solid #00d4ff;
+        }
+        
+        .alert-success {
+            background: rgba(0, 255, 136, 0.1);
+            color: #56d364;
+            border-left: 4px solid #00ff88;
+        }
+        
+        .alert-danger {
+            background: rgba(248, 81, 73, 0.1);
+            color: #f85149;
+            border-left: 4px solid #f85149;
+        }
+        
+        code {
+            background: rgba(110, 118, 129, 0.2);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-container">
+        <div class="glass-card">
+            <h1 class="mb-4">
+                <span style="color: #00d4ff;">📱</span>
+                Telegram Alerts Setup
+            </h1>
+            
+            <p class="lead mb-4">
+                Get instant notifications for your $50K trading strategy - optimal entry/exit points, profit targets, and scaling opportunities.
+            </p>
+            
+            <div class="step">
+                <h4>
+                    <span class="step-number">1</span>
+                    Create Your Bot
+                </h4>
+                <p>Message <code>@BotFather</code> on Telegram:</p>
+                <ol>
+                    <li>Send <code>/newbot</code></li>
+                    <li>Choose a name (e.g., "My Trading Bot")</li>
+                    <li>Choose a username (e.g., "my_trading_bot")</li>
+                    <li>Copy the bot token BotFather gives you</li>
+                </ol>
+            </div>
+            
+            <div class="step">
+                <h4>
+                    <span class="step-number">2</span>
+                    Get Your Chat ID
+                </h4>
+                <div class="mb-3">
+                    <label for="botToken" class="form-label">Enter Your Bot Token:</label>
+                    <input type="text" class="form-control" id="botToken" placeholder="1234567890:ABCDEF...">
+                </div>
+                <button class="btn btn-primary" onclick="getChatId()">Get Chat ID</button>
+                <div id="chatIdResult" class="mt-3"></div>
+            </div>
+            
+            <div class="step">
+                <h4>
+                    <span class="step-number">3</span>
+                    Add to Secrets
+                </h4>
+                <p>Add these two secrets in your Replit environment:</p>
+                <ul>
+                    <li><strong>TELEGRAM_BOT_TOKEN:</strong> Your bot token from step 1</li>
+                    <li><strong>TELEGRAM_CHAT_ID:</strong> Your chat ID from step 2</li>
+                </ul>
+            </div>
+            
+            <div class="step">
+                <h4>
+                    <span class="step-number">4</span>
+                    Test Connection
+                </h4>
+                <button class="btn btn-success" onclick="testTelegram()">Send Test Alert</button>
+                <div id="testResult" class="mt-3"></div>
+                
+                <div class="mt-4">
+                    <button class="btn btn-warning" onclick="startMonitoring()">Start Position Monitoring</button>
+                    <div id="monitorResult" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function getChatId() {
+            const botToken = document.getElementById('botToken').value.trim();
+            const resultDiv = document.getElementById('chatIdResult');
+            
+            if (!botToken) {
+                resultDiv.innerHTML = '<div class="alert alert-danger">Please enter your bot token</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="alert alert-info">Getting your Chat ID... Make sure you sent a message to your bot first!</div>';
+            
+            try {
+                const response = await fetch('/api/telegram-setup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ bot_token: botToken })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <strong>Success!</strong> Your Chat ID is: <code>${data.chat_id}</code><br>
+                            Add this as TELEGRAM_CHAT_ID in your secrets.
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <strong>Error:</strong> ${data.error}<br>
+                            Make sure you've sent a message to your bot first.
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-danger">Network error: ${error.message}</div>`;
+            }
+        }
+        
+        async function testTelegram() {
+            const resultDiv = document.getElementById('testResult');
+            resultDiv.innerHTML = '<div class="alert alert-info">Sending test alert...</div>';
+            
+            try {
+                const response = await fetch('/api/test-telegram', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <strong>Success!</strong> ${data.message}<br>
+                            Your Telegram alerts are now active for the $50K strategy!
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <strong>Error:</strong> ${data.error}<br>
+                            Make sure both TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are set in your secrets.
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-danger">Network error: ${error.message}</div>`;
+            }
+        }
+        
+        async function startMonitoring() {
+            const resultDiv = document.getElementById('monitorResult');
+            resultDiv.innerHTML = '<div class="alert alert-info">Starting position monitoring...</div>';
+            
+            try {
+                const response = await fetch('/api/start-monitoring', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <strong>Monitoring Active!</strong> ${data.message}<br>
+                            You'll receive alerts when ADA or SOL hit profit targets.
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <strong>Error:</strong> ${data.error}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-danger">Network error: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

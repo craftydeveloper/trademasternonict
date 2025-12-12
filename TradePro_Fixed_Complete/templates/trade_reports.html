@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+
+{% block title %}Trade Reports{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+    <div class="row">
+        <div class="col-12">
+            <h2>Trading Performance Reports</h2>
+            <p class="text-muted">Complete tracking of all my trading recommendations and results</p>
+        </div>
+    </div>
+
+    <!-- Performance Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Total P&L</h5>
+                    <h3 id="total-pnl">$0.00</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Win Rate</h5>
+                    <h3 id="win-rate">0%</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Active Trades</h5>
+                    <h3 id="active-trades">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-secondary text-white">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Total Trades</h5>
+                    <h3 id="total-trades">0</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Performance Metrics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <p><strong>Winning Trades:</strong> <span id="winning-trades">0</span></p>
+                            <p><strong>Losing Trades:</strong> <span id="losing-trades">0</span></p>
+                            <p><strong>Average Win:</strong> $<span id="avg-win">0.00</span></p>
+                        </div>
+                        <div class="col-6">
+                            <p><strong>Average Loss:</strong> $<span id="avg-loss">0.00</span></p>
+                            <p><strong>Closed Trades:</strong> <span id="closed-trades">0</span></p>
+                            <p><strong>Success Rate:</strong> <span id="success-rate">0%</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Account Summary</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Starting Balance:</strong> $50.00</p>
+                    <p><strong>Current Balance:</strong> $<span id="current-balance">50.00</span></p>
+                    <p><strong>Total Return:</strong> <span id="total-return">0.0%</span></p>
+                    <p><strong>Last Updated:</strong> <span id="last-updated">Just now</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Trades Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>All Trade Recommendations</h5>
+                    <button class="btn btn-sm btn-primary" onclick="refreshData()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped" id="trades-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Symbol</th>
+                                    <th>Action</th>
+                                    <th>Entry Price</th>
+                                    <th>Target</th>
+                                    <th>Stop Loss</th>
+                                    <th>Confidence</th>
+                                    <th>Risk</th>
+                                    <th>Status</th>
+                                    <th>P&L</th>
+                                    <th>Strategy</th>
+                                </tr>
+                            </thead>
+                            <tbody id="trades-tbody">
+                                <tr>
+                                    <td colspan="11" class="text-center text-muted">Loading trade data...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+class TradeReports {
+    constructor() {
+        this.init();
+    }
+
+    async init() {
+        await this.loadData();
+        // Auto-refresh every 30 seconds
+        setInterval(() => this.loadData(), 30000);
+    }
+
+    async loadData() {
+        try {
+            await Promise.all([
+                this.loadSummary(),
+                this.loadTrades()
+            ]);
+        } catch (error) {
+            console.error('Error loading data:', error);
+        }
+    }
+
+    async loadSummary() {
+        try {
+            const response = await fetch('/api/trade-summary');
+            const data = await response.json();
+
+            if (data.error) {
+                console.error('Summary error:', data.error);
+                return;
+            }
+
+            // Update summary cards
+            document.getElementById('total-pnl').textContent = `$${(data.total_pnl || 0).toFixed(2)}`;
+            document.getElementById('win-rate').textContent = `${(data.win_rate || 0).toFixed(1)}%`;
+            document.getElementById('active-trades').textContent = data.active_trades || 0;
+            document.getElementById('total-trades').textContent = data.total_recommendations || 0;
+
+            // Update detailed metrics
+            document.getElementById('winning-trades').textContent = data.winning_trades || 0;
+            document.getElementById('losing-trades').textContent = data.losing_trades || 0;
+            document.getElementById('avg-win').textContent = (data.avg_win || 0).toFixed(2);
+            document.getElementById('avg-loss').textContent = Math.abs(data.avg_loss || 0).toFixed(2);
+            document.getElementById('closed-trades').textContent = data.closed_trades || 0;
+            document.getElementById('success-rate').textContent = `${(data.win_rate || 0).toFixed(1)}%`;
+
+            // Calculate current balance
+            const currentBalance = 50 + (data.total_pnl || 0);
+            const totalReturn = ((currentBalance - 50) / 50 * 100).toFixed(1);
+            
+            document.getElementById('current-balance').textContent = currentBalance.toFixed(2);
+            document.getElementById('total-return').textContent = `${totalReturn}%`;
+            document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
+
+        } catch (error) {
+            console.error('Error loading summary:', error);
+        }
+    }
+
+    async loadTrades() {
+        try {
+            const response = await fetch('/api/recent-trades');
+            const data = await response.json();
+
+            if (data.error) {
+                console.error('Trades error:', data.error);
+                return;
+            }
+
+            const tbody = document.getElementById('trades-tbody');
+            
+            if (!data.trades || data.trades.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted">No trades recorded yet</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.trades.map(trade => {
+                const date = new Date(trade.recommended_at).toLocaleDateString();
+                const statusClass = this.getStatusClass(trade.status);
+                const pnl = trade.actual_pnl ? `$${trade.actual_pnl.toFixed(2)}` : '-';
+                const pnlClass = trade.actual_pnl > 0 ? 'text-success' : trade.actual_pnl < 0 ? 'text-danger' : '';
+
+                return `
+                    <tr>
+                        <td>${date}</td>
+                        <td><strong>${trade.symbol}</strong></td>
+                        <td><span class="badge ${trade.action === 'BUY' ? 'bg-success' : 'bg-danger'}">${trade.action}</span></td>
+                        <td>$${trade.entry_price.toFixed(4)}</td>
+                        <td>$${trade.take_profit.toFixed(4)}</td>
+                        <td>$${trade.stop_loss.toFixed(4)}</td>
+                        <td>${trade.confidence.toFixed(1)}%</td>
+                        <td>$${trade.risk_amount.toFixed(2)}</td>
+                        <td><span class="badge ${statusClass}">${trade.status}</span></td>
+                        <td class="${pnlClass}"><strong>${pnl}</strong></td>
+                        <td><small>${trade.strategy_basis}</small></td>
+                    </tr>
+                `;
+            }).join('');
+
+        } catch (error) {
+            console.error('Error loading trades:', error);
+        }
+    }
+
+    getStatusClass(status) {
+        switch (status) {
+            case 'RECOMMENDED': return 'bg-warning';
+            case 'ACTIVE': return 'bg-info';
+            case 'CLOSED': return 'bg-success';
+            case 'CANCELLED': return 'bg-secondary';
+            default: return 'bg-light';
+        }
+    }
+}
+
+function refreshData() {
+    window.tradeReports.loadData();
+}
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    window.tradeReports = new TradeReports();
+});
+</script>
+{% endblock %}

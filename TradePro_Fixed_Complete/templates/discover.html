@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+
+{% block title %}Token Discovery - Solana Trading Bot{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Discovery Controls -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-search me-2"></i>Token Discovery & Research
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label class="form-label">Category</label>
+                            <select class="form-select" id="category-select">
+                                <option value="all">All Trending</option>
+                                <option value="defi">DeFi Tokens</option>
+                                <option value="gaming">Gaming & NFT</option>
+                                <option value="infrastructure">Infrastructure</option>
+                                <option value="meme">Meme Tokens</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Results Limit</label>
+                            <select class="form-select" id="limit-select">
+                                <option value="10">Top 10</option>
+                                <option value="20" selected>Top 20</option>
+                                <option value="50">Top 50</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <button class="btn btn-primary w-100" onclick="discoverTokens()">
+                                <i class="fas fa-search me-2"></i>Discover Tokens
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Discovery Results -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-chart-line me-2"></i>Discovered Tokens
+                    </h6>
+                    <div id="discovery-status" class="badge bg-secondary">Ready</div>
+                </div>
+                <div class="card-body">
+                    <div id="loading-spinner" class="text-center py-4" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Discovering tokens...</span>
+                        </div>
+                        <p class="mt-2">Analyzing market data...</p>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Token</th>
+                                    <th>Price</th>
+                                    <th>24h Change</th>
+                                    <th>7d Change</th>
+                                    <th>Volume</th>
+                                    <th>Market Cap</th>
+                                    <th>Score</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="discovered-tokens">
+                                <!-- Discovered tokens will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div id="no-results" class="text-center text-muted py-4" style="display: none;">
+                        <i class="fas fa-search fa-3x mb-3"></i>
+                        <p>Click "Discover Tokens" to find promising trading opportunities</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Token Details Modal -->
+<div class="modal fade" id="tokenDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Token Fundamentals</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="token-details-content">
+                    <!-- Token details will be populated here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="trade-token-btn" onclick="initiateTradeFromDetails()">
+                    <i class="fas fa-exchange-alt me-2"></i>Trade This Token
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add to Watchlist Modal -->
+<div class="modal fade" id="watchlistModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add to Watchlist</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Token <strong id="watchlist-token-name"></strong> has been added to your watchlist.</p>
+                <p class="text-muted">You'll receive notifications about price movements and important updates.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Got it</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Token discovery functionality
+let discoveredTokens = [];
+let currentTokenDetails = {};
+
+// Initialize discovery page
+document.addEventListener('DOMContentLoaded', function() {
+    showNoResults();
+});
+
+function discoverTokens() {
+    const category = document.getElementById('category-select').value;
+    const limit = document.getElementById('limit-select').value;
+    
+    // Show loading state
+    document.getElementById('loading-spinner').style.display = 'block';
+    document.getElementById('no-results').style.display = 'none';
+    document.getElementById('discovery-status').textContent = 'Discovering...';
+    document.getElementById('discovery-status').className = 'badge bg-warning';
+    
+    fetch(`/api/discover-tokens?category=${category}&limit=${limit}`)
+        .then(response => response.json())
+        .then(data => {
+            discoveredTokens = data;
+            displayDiscoveredTokens(data);
+            document.getElementById('loading-spinner').style.display = 'none';
+            document.getElementById('discovery-status').textContent = `Found ${data.length} tokens`;
+            document.getElementById('discovery-status').className = 'badge bg-success';
+        })
+        .catch(error => {
+            console.error('Error discovering tokens:', error);
+            document.getElementById('loading-spinner').style.display = 'none';
+            document.getElementById('discovery-status').textContent = 'Error';
+            document.getElementById('discovery-status').className = 'badge bg-danger';
+            showNotification('Error discovering tokens. Please try again.', 'error');
+        });
+}
+
+function displayDiscoveredTokens(tokens) {
+    const tbody = document.getElementById('discovered-tokens');
+    
+    if (!tokens || tokens.length === 0) {
+        tbody.innerHTML = '';
+        showNoResults();
+        return;
+    }
+    
+    tbody.innerHTML = tokens.map(token => {
+        const changeColor24h = (token.price_change_24h || 0) >= 0 ? 'text-success' : 'text-danger';
+        const changeColor7d = (token.price_change_7d || 0) >= 0 ? 'text-success' : 'text-danger';
+        const scoreColor = token.score >= 70 ? 'text-success' : token.score >= 50 ? 'text-warning' : 'text-danger';
+        
+        return `
+            <tr>
+                <td>
+                    <div class="d-flex align-items-center">
+                        ${token.image ? `<img src="${token.image}" alt="${token.symbol}" class="me-2" style="width: 24px; height: 24px;">` : ''}
+                        <div>
+                            <strong>${token.symbol}</strong>
+                            <br>
+                            <small class="text-muted">${token.name}</small>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    ${token.current_price ? formatCurrency(token.current_price) : 'N/A'}
+                </td>
+                <td class="${changeColor24h}">
+                    ${token.price_change_24h ? formatPercentage(token.price_change_24h) : 'N/A'}
+                </td>
+                <td class="${changeColor7d}">
+                    ${token.price_change_7d ? formatPercentage(token.price_change_7d) : 'N/A'}
+                </td>
+                <td>
+                    ${token.volume_24h ? formatLargeNumber(token.volume_24h) : 'N/A'}
+                </td>
+                <td>
+                    ${token.market_cap ? formatLargeNumber(token.market_cap) : 'N/A'}
+                    ${token.market_cap_rank ? `<br><small class="text-muted">#${token.market_cap_rank}</small>` : ''}
+                </td>
+                <td>
+                    <span class="badge ${scoreColor === 'text-success' ? 'bg-success' : scoreColor === 'text-warning' ? 'bg-warning' : 'bg-danger'}">
+                        ${Math.round(token.score || 0)}
+                    </span>
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        ${token.coingecko_id ? `
+                        <button class="btn btn-outline-info" onclick="showTokenDetails('${token.coingecko_id}', '${token.symbol}')">
+                            <i class="fas fa-info-circle"></i>
+                        </button>` : ''}
+                        <button class="btn btn-outline-primary" onclick="addToWatchlist('${token.symbol}', '${token.name}')">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function showTokenDetails(coingeckoId, symbol) {
+    // Show loading in modal
+    const modal = document.getElementById('tokenDetailsModal');
+    const content = document.getElementById('token-details-content');
+    
+    content.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading token fundamentals...</p>
+        </div>
+    `;
+    
+    const bootstrapModal = new bootstrap.Modal(modal);
+    bootstrapModal.show();
+    
+    // Fetch detailed fundamentals
+    fetch(`/api/token-fundamentals/${coingeckoId}`)
+        .then(response => response.json())
+        .then(data => {
+            currentTokenDetails = data;
+            displayTokenDetails(data);
+        })
+        .catch(error => {
+            console.error('Error loading token details:', error);
+            content.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Error loading token details. Please try again.
+                </div>
+            `;
+        });
+}
+
+function displayTokenDetails(data) {
+    const content = document.getElementById('token-details-content');
+    
+    const sentimentColor = (data.sentiment_votes_up_percentage || 0) >= 50 ? 'success' : 'danger';
+    const athDistance = data.ath ? ((data.current_price / data.ath - 1) * 100) : 0;
+    
+    content.innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <h6>Basic Information</h6>
+                <table class="table table-sm">
+                    <tr><td><strong>Name:</strong></td><td>${data.name}</td></tr>
+                    <tr><td><strong>Symbol:</strong></td><td>${data.symbol}</td></tr>
+                    <tr><td><strong>Current Price:</strong></td><td>${formatCurrency(data.current_price)}</td></tr>
+                    <tr><td><strong>Market Cap:</strong></td><td>${formatLargeNumber(data.market_cap)}</td></tr>
+                    <tr><td><strong>24h Volume:</strong></td><td>${formatLargeNumber(data.total_volume)}</td></tr>
+                </table>
+                
+                <h6 class="mt-3">Supply Information</h6>
+                <table class="table table-sm">
+                    <tr><td><strong>Circulating:</strong></td><td>${formatLargeNumber(data.circulating_supply)}</td></tr>
+                    <tr><td><strong>Total Supply:</strong></td><td>${formatLargeNumber(data.total_supply)}</td></tr>
+                    <tr><td><strong>Supply Ratio:</strong></td><td>${data.total_supply ? ((data.circulating_supply / data.total_supply) * 100).toFixed(1) + '%' : 'N/A'}</td></tr>
+                </table>
+            </div>
+            
+            <div class="col-md-6">
+                <h6>Price Performance</h6>
+                <table class="table table-sm">
+                    <tr><td><strong>24h Change:</strong></td><td class="${data.price_change_percentage_24h >= 0 ? 'text-success' : 'text-danger'}">${formatPercentage(data.price_change_percentage_24h)}</td></tr>
+                    <tr><td><strong>7d Change:</strong></td><td class="${data.price_change_percentage_7d >= 0 ? 'text-success' : 'text-danger'}">${formatPercentage(data.price_change_percentage_7d)}</td></tr>
+                    <tr><td><strong>30d Change:</strong></td><td class="${data.price_change_percentage_30d >= 0 ? 'text-success' : 'text-danger'}">${formatPercentage(data.price_change_percentage_30d)}</td></tr>
+                    <tr><td><strong>All-Time High:</strong></td><td>${formatCurrency(data.ath)}</td></tr>
+                    <tr><td><strong>From ATH:</strong></td><td class="text-danger">${formatPercentage(athDistance)}</td></tr>
+                </table>
+                
+                <h6 class="mt-3">Community Metrics</h6>
+                <table class="table table-sm">
+                    <tr><td><strong>Sentiment:</strong></td><td><span class="badge bg-${sentimentColor}">${Math.round(data.sentiment_votes_up_percentage || 0)}% Bullish</span></td></tr>
+                    <tr><td><strong>Community Score:</strong></td><td>${Math.round(data.community_score || 0)}/100</td></tr>
+                    <tr><td><strong>Developer Score:</strong></td><td>${Math.round(data.developer_score || 0)}/100</td></tr>
+                    <tr><td><strong>Liquidity Score:</strong></td><td>${Math.round(data.liquidity_score || 0)}/100</td></tr>
+                </table>
+            </div>
+        </div>
+        
+        ${data.description ? `
+        <div class="row mt-3">
+            <div class="col-12">
+                <h6>Description</h6>
+                <p class="text-muted">${data.description}</p>
+            </div>
+        </div>` : ''}
+        
+        ${data.website || data.twitter ? `
+        <div class="row mt-3">
+            <div class="col-12">
+                <h6>Links</h6>
+                ${data.website ? `<a href="${data.website}" target="_blank" class="btn btn-outline-primary btn-sm me-2"><i class="fas fa-globe me-1"></i>Website</a>` : ''}
+                ${data.twitter ? `<a href="https://twitter.com/${data.twitter}" target="_blank" class="btn btn-outline-info btn-sm"><i class="fab fa-twitter me-1"></i>Twitter</a>` : ''}
+            </div>
+        </div>` : ''}
+    `;
+}
+
+function addToWatchlist(symbol, name) {
+    // Simulate adding to watchlist
+    document.getElementById('watchlist-token-name').textContent = `${name} (${symbol})`;
+    
+    const modal = new bootstrap.Modal(document.getElementById('watchlistModal'));
+    modal.show();
+    
+    showNotification(`${symbol} added to watchlist`, 'success');
+}
+
+function initiateTradeFromDetails() {
+    if (currentTokenDetails.symbol) {
+        // Close modal and redirect to trading page with the token
+        bootstrap.Modal.getInstance(document.getElementById('tokenDetailsModal')).hide();
+        
+        // Store the token for trading page
+        sessionStorage.setItem('selectedToken', JSON.stringify({
+            symbol: currentTokenDetails.symbol,
+            price: currentTokenDetails.current_price,
+            name: currentTokenDetails.name
+        }));
+        
+        // Redirect to trading page
+        window.location.href = '/trading';
+    }
+}
+
+function showNoResults() {
+    document.getElementById('no-results').style.display = 'block';
+    document.getElementById('discovered-tokens').innerHTML = '';
+}
+
+// Utility functions
+function formatCurrency(value) {
+    if (!value) return 'N/A';
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 6
+    }).format(value);
+}
+
+function formatPercentage(value) {
+    if (value === null || value === undefined) return 'N/A';
+    return (value >= 0 ? '+' : '') + value.toFixed(2) + '%';
+}
+
+function formatLargeNumber(num) {
+    if (!num) return 'N/A';
+    if (num >= 1e12) return (num / 1e12).toFixed(1) + 'T';
+    if (num >= 1e9) return (num / 1e9).toFixed(1) + 'B';
+    if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
+    if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
+    return num.toFixed(0);
+}
+
+function showNotification(message, type = 'info') {
+    const alertClass = type === 'success' ? 'alert-success' : 
+                      type === 'error' ? 'alert-danger' : 'alert-info';
+    
+    const alert = document.createElement('div');
+    alert.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+    alert.style.cssText = 'top: 80px; right: 20px; z-index: 9999; min-width: 300px;';
+    alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alert);
+    
+    setTimeout(() => {
+        if (alert.parentNode) {
+            alert.parentNode.removeChild(alert);
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

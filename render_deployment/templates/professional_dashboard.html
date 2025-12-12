@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Futures Trading Dashboard</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-bg: #0a0e14;
+            --card-bg: rgba(26, 31, 38, 0.95);
+            --border-color: #2d3748;
+            --accent-blue: #00d4ff;
+            --accent-green: #00ff88;
+            --accent-red: #ff4757;
+            --text-primary: #ffffff;
+            --text-secondary: #a0aec0;
+            --text-muted: #718096;
+            --gradient-primary: linear-gradient(135deg, #00d4ff 0%, #00ff88 100%);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, var(--primary-bg) 0%, #0f1419 50%, #1a1f26 100%);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .clean-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            backdrop-filter: blur(20px);
+            transition: all 0.3s ease;
+        }
+        
+        .clean-card:hover {
+            border-color: var(--accent-blue);
+            box-shadow: 0 8px 40px rgba(0, 212, 255, 0.15);
+            transform: translateY(-2px);
+        }
+        
+        .metric-box {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .metric-box:hover {
+            border-color: var(--accent-blue);
+            transform: translateY(-2px);
+        }
+        
+        .metric-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        
+        .signal-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .signal-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--accent-blue);
+            box-shadow: 0 8px 30px rgba(0, 212, 255, 0.15);
+        }
+        
+        .primary-signal {
+            border: 2px solid var(--accent-green);
+            background: rgba(0, 255, 136, 0.05);
+        }
+        
+        .signal-header {
+            background: rgba(21, 25, 31, 0.8);
+            padding: 1rem;
+            border-bottom: 1px solid #21262d;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .signal-body {
+            padding: 1.5rem;
+        }
+        
+        .primary-badge {
+            background: linear-gradient(135deg, #238636, #2ea043);
+            color: white;
+            font-size: 0.7rem;
+            padding: 0.3rem 0.6rem;
+            border-radius: 6px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .confidence-meter {
+            height: 4px;
+            background: #21262d;
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 0.8rem 0;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #238636, #2ea043);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+        
+        .price-text {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #58a6ff;
+        }
+        
+        .btn-clean {
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            color: var(--accent-blue);
+            border-radius: 8px;
+            padding: 0.7rem 1.4rem;
+            font-weight: 500;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+        
+        .btn-clean:hover {
+            background: rgba(0, 212, 255, 0.2);
+            color: var(--accent-blue);
+            transform: translateY(-1px);
+            text-decoration: none;
+        }
+        
+        .btn-success-clean {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid rgba(0, 255, 136, 0.4);
+            color: var(--accent-green);
+        }
+        
+        .btn-success-clean:hover {
+            background: rgba(0, 255, 136, 0.2);
+            color: var(--accent-green);
+        }
+        
+        .section-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #f0f6fc;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #21262d;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #3fb950;
+            display: inline-block;
+            margin-right: 0.5rem;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .text-success-clean { color: var(--accent-green); }
+        .text-warning-clean { color: var(--accent-red); }
+        .text-info-clean { color: var(--accent-blue); }
+        .text-muted-clean { color: var(--text-muted); }
+        
+        .navbar {
+            background: rgba(26, 31, 38, 0.98) !important;
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .navbar-brand {
+            font-weight: 800;
+            font-size: 1.4rem;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-decoration: none;
+        }
+        
+        .nav-link {
+            color: var(--text-secondary) !important;
+            font-weight: 500;
+            padding: 8px 16px !important;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-link:hover, .nav-link.active {
+            color: var(--accent-blue) !important;
+            background: rgba(0, 212, 255, 0.1);
+            text-decoration: none;
+        }
+        
+        .container {
+            max-width: 1200px;
+        }
+        
+        .row {
+            margin-bottom: 1rem;
+        }
+        
+        .trading-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+    </style>
+</head>
+<body class="bg-dark text-light">
+    <nav class="navbar navbar-expand-lg">
+        <div class="container">
+            <div class="w-100 d-flex justify-content-center">
+                <a class="navbar-brand" href="/" style="margin: 0;">
+                    TradePro
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1 class="section-title mb-1">Trading Dashboard</h1>
+                        <p class="text-muted-clean mb-0">
+                            <span class="status-dot"></span>Live market analysis
+                        </p>
+                    </div>
+                    <div>
+                        <a href="/analysis" class="btn btn-clean me-2">
+                            <i class="fas fa-chart-bar me-1"></i>Analysis
+                        </a>
+                        <a href="/portfolio" class="btn btn-clean me-2">
+                            <i class="fas fa-wallet me-1"></i>Portfolio
+                        </a>
+                        <a href="/reports" class="btn btn-success-clean me-2">
+                            <i class="fas fa-chart-area me-1"></i>Reports
+                        </a>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+
+        <!-- Market Metrics -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="metric-box">
+                    <div class="metric-label">Market Sentiment</div>
+                    <div id="market-sentiment" class="metric-value text-success-clean">Bullish</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-box">
+                    <div class="metric-label">Active Signals</div>
+                    <div id="active-signals" class="metric-value text-info-clean">0</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-box">
+                    <div class="metric-label">Volatility</div>
+                    <div id="volatility-level" class="metric-value text-warning-clean">Normal</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-box">
+                    <div class="metric-label">24h Change</div>
+                    <div id="avg-change" class="metric-value text-success-clean">+2.4%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trading Signals -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h2 class="section-title">Trading Signals</h2>
+                <div id="recommendations-container">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-info-clean" role="status">
+                            <span class="visually-hidden">Loading signals...</span>
+                        </div>
+                        <p class="mt-2 text-muted-clean">Analyzing market data...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+
+        <!-- Top Movers -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <h4><i class="fas fa-arrow-up me-2 text-success"></i>Top Gainers</h4>
+                <div id="top-gainers" class="trading-card">
+                    <div class="text-center py-3">Loading...</div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <h4><i class="fas fa-arrow-down me-2 text-danger"></i>Top Losers</h4>
+                <div id="top-losers" class="trading-card">
+                    <div class="text-center py-3">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recommendation Modal -->
+    <div class="modal fade" id="recommendationModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content bg-dark">
+                <div class="modal-header">
+                    <h5 class="modal-title">Trading Recommendation Details</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="modal-content"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="copy-bybit-settings">Copy Bybit Settings</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        class ProfessionalDashboard {
+            constructor() {
+                this.refreshInterval = null;
+                this.init();
+            }
+
+            async init() {
+                await this.loadAllData();
+                this.startAutoRefresh();
+                
+                // Force refresh every 30 seconds to prevent stale data
+                setInterval(() => {
+                    this.loadAllData();
+                }, 30000);
+                
+                // Add timestamp to prevent caching
+                console.log('Professional Dashboard initialized at:', new Date().toISOString());
+            }
+
+            async loadAllData() {
+                try {
+                    await Promise.all([
+                        this.loadRecommendations(),
+                        this.loadMarketInsights()
+                    ]);
+                } catch (error) {
+                    console.error('Error loading dashboard data:', error);
+                }
+            }
+
+            async loadRecommendations() {
+                try {
+                    // Use trading signals endpoint for immediate loading with cache busting
+                    const response = await fetch(`/api/trading-signals?t=${Date.now()}`);
+                    const data = await response.json();
+                    
+                    if (data.error) {
+                        this.showError('recommendations-container', data.error);
+                        return;
+                    }
+
+                    // Display signals
+                    console.log('Displaying signals:', data.signals);
+                    this.displayFastSignals(data.signals || []);
+                    
+                    // Update portfolio metrics from signals response
+                    if (data.signals && data.signals.length > 0) {
+                        this.updatePortfolioMetrics();
+                    }
+                } catch (error) {
+                    this.showError('recommendations-container', 'Failed to load trading signals');
+                }
+            }
+
+            displayFastSignals(signals) {
+                const container = document.getElementById('recommendations-container');
+                
+                console.log('Displaying signals:', signals);
+                
+                if (!signals || signals.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-4">
+                            <i class="fas fa-chart-line text-info fa-2x mb-3"></i>
+                            <p>No active trading signals at the moment.</p>
+                            <small class="text-muted">Signals are generated when momentum and volume conditions align with 60%+ confidence.</small>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = signals.map(signal => `
+                    <div class="signal-card ${signal.is_primary_trade ? 'primary-signal' : ''}" data-symbol="${signal.symbol}">
+                        <div class="signal-header">
+                            <div class="d-flex align-items-center">
+                                <h4 class="mb-0 me-3">${signal.symbol}</h4>
+                                <span class="badge ${signal.action === 'BUY' ? 'bg-success' : 'bg-danger'} me-2">${signal.action}</span>
+                                ${signal.is_primary_trade ? '<span class="primary-badge">YOUR TRADE</span>' : '<span class="secondary-badge">YOUR TRADE</span>'}
+                            </div>
+                            <div class="price-text">$${signal.entry_price < 1 ? signal.entry_price.toFixed(6) : signal.entry_price.toFixed(2)}</div>
+                        </div>
+                        <div class="signal-body">
+                            <div class="row mb-3">
+                                <div class="col-md-3">
+                                    <div class="metric-label">Confidence</div>
+                                    <div class="metric-value">${signal.confidence.toFixed(1)}%</div>
+                                    <div class="confidence-meter">
+                                        <div class="confidence-fill" style="width: ${signal.confidence}%"></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-label">Target</div>
+                                    <div class="metric-value text-success-clean">$${signal.take_profit < 1 ? signal.take_profit.toFixed(6) : signal.take_profit.toFixed(2)}</div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-label">Expected Return</div>
+                                    <div class="metric-value text-success-clean">${(signal.expected_return * (signal.is_primary_trade ? 15 : 12) / 100).toFixed(1)}%</div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-label">Ultra Leverage</div>
+                                    <div class="metric-value">${signal.leverage}x</div>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted-clean">
+                                    Professional Strategy | Risk: ${signal.bybit_settings.risk_management.risk_percentage} | Conservative Approach
+                                </small>
+                                <button class="btn btn-success-clean" onclick="dashboard.showBybitSettings('${signal.symbol}', ${JSON.stringify(signal.bybit_settings).replace(/"/g, '&quot;')})">
+                                    <i class="fas fa-rocket me-1"></i>Execute Trade
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            displayRecommendations(recommendations) {
+                // Fallback for professional recommendations
+                this.displayFastSignals(recommendations);
+            }
+
+            async loadMarketInsights() {
+                try {
+                    // Load market overview data for top gainers/losers
+                    const overviewResponse = await fetch('/api/market-overview');
+                    const overviewData = await overviewResponse.json();
+                    
+                    if (overviewData.success) {
+                        // Update market sentiment
+                        const sentiment = overviewData.market_overview.sentiment;
+                        const avgChange = overviewData.market_overview.average_change.toFixed(1);
+                        
+                        document.getElementById('market-sentiment').textContent = sentiment.charAt(0).toUpperCase() + sentiment.slice(1);
+                        document.getElementById('market-sentiment').className = `metric-value text-${sentiment === 'bullish' ? 'success' : sentiment === 'bearish' ? 'danger' : 'warning'}-clean`;
+                        document.getElementById('avg-change').textContent = `${avgChange}%`;
+                        document.getElementById('volatility-level').textContent = 'Moderate';
+                        
+                        // Update top movers
+                        this.updateTopMovers({
+                            gainers: overviewData.top_gainers,
+                            losers: overviewData.top_losers
+                        });
+                    }
+                    
+                    // Load TRX stack data
+                    await this.loadTrxStack();
+                    
+                } catch (error) {
+                    console.error('Error loading market insights:', error);
+                    // Fallback display
+                    document.getElementById('market-sentiment').textContent = 'Loading...';
+                    document.getElementById('avg-change').textContent = '--';
+                    document.getElementById('volatility-level').textContent = '--';
+                }
+            }
+
+            async loadTrxStack() {
+                try {
+                    // Load TRX stack data
+                    const trxResponse = await fetch('/api/trx-stack-summary');
+                    const trxData = await trxResponse.json();
+                    
+                    if (trxData.success && trxData.stack_summary) {
+                        const stack = trxData.stack_summary;
+                        
+                        // Update TRX metrics if elements exist
+                        const trxAmountEl = document.getElementById('trx-amount');
+                        const trxValueEl = document.getElementById('trx-value');
+                        
+                        if (trxAmountEl) trxAmountEl.textContent = `${stack.total_trx.toFixed(2)} TRX`;
+                        if (trxValueEl) trxValueEl.textContent = `$${stack.current_value_usd.toFixed(2)}`;
+                    }
+                    
+                    // Load aggressive growth tracking and ultra 50K optimization
+                    await this.loadAggressiveGrowthStatus();
+                    // Ultra 50K optimization disabled for balanced trading
+                    
+                } catch (error) {
+                    console.error('Error loading TRX stack:', error);
+                }
+            }
+
+            async loadAggressiveGrowthStatus() {
+                try {
+                    const response = await fetch('/api/aggressive-growth-status');
+                    const data = await response.json();
+                    
+                    if (data.success && data.growth_tracking) {
+                        const growth = data.growth_tracking;
+                        const progress = growth.current_progress;
+                        const assessment = growth.performance_assessment;
+                        
+                        // Update growth target display
+                        const targetEl = document.getElementById('growth-target');
+                        const progressEl = document.getElementById('target-progress');
+                        
+                        if (targetEl) targetEl.textContent = `$${growth.target_info.target_amount.toLocaleString()}`;
+                        if (progressEl) progressEl.textContent = `${progress.progress_percentage.toFixed(3)}%`;
+                        
+                        // Show urgency alerts if needed
+                        if (data.alerts && data.alerts.urgency_level !== 'LOW') {
+                            this.showGrowthAlert(data.alerts);
+                        }
+                        
+                        // Update daily rate needed display
+                        const dailyRateEl = document.getElementById('daily-rate-needed');
+                        if (dailyRateEl) {
+                            dailyRateEl.textContent = `${(progress.daily_rate_needed_remaining * 100).toFixed(1)}%`;
+                            
+                            // Color coding based on difficulty
+                            const rate = progress.daily_rate_needed_remaining * 100;
+                            if (rate > 15) {
+                                dailyRateEl.className = 'metric-value text-danger';
+                            } else if (rate > 10) {
+                                dailyRateEl.className = 'metric-value text-warning';
+                            } else {
+                                dailyRateEl.className = 'metric-value text-success';
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error loading aggressive growth status:', error);
+                }
+            }
+
+            async loadUltra50KOptimization() {
+                try {
+                    const response = await fetch('/api/ultra-50k-optimization');
+                    const data = await response.json();
+                    
+                    if (data.success && data.ultra_50k_mode) {
+                        // Display ultra 50K status banner
+                        this.showUltra50KStatus(data);
+                        
+                        // Update trading parameters display
+                        const modeEl = document.getElementById('trading-mode');
+                        if (modeEl) {
+                            modeEl.textContent = data.status_message;
+                            modeEl.className = 'metric-value text-warning';
+                        }
+                    }
+                } catch (error) {
+                    // Ultra 50K optimization disabled for balanced trading
+                }
+            }
+
+            // Balanced trading mode - no aggressive optimization banners needed
+
+            showGrowthAlert(alerts) {
+                // Create alert banner for urgent growth status
+                const alertHtml = `
+                    <div class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
+                        <strong>Growth Alert (${alerts.urgency_level}):</strong> ${alerts.recommendation}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `;
+                
+                const container = document.querySelector('.container-fluid');
+                if (container && !document.querySelector('.growth-alert')) {
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'growth-alert';
+                    alertDiv.innerHTML = alertHtml;
+                    container.insertBefore(alertDiv, container.firstChild);
+                }
+            }
+
+            updateTopMovers(topMovers) {
+                if (!topMovers || !topMovers.gainers || !topMovers.losers) return;
+                
+                const gainersHtml = topMovers.gainers.map((item) => `
+                    <div class="d-flex justify-content-between py-2 border-bottom border-secondary">
+                        <span class="fw-bold">${item.symbol}</span>
+                        <span class="text-success">+${item.change_24h.toFixed(2)}%</span>
+                    </div>
+                `).join('');
+
+                const losersHtml = topMovers.losers.map((item) => `
+                    <div class="d-flex justify-content-between py-2 border-bottom border-secondary">
+                        <span class="fw-bold">${item.symbol}</span>
+                        <span class="text-danger">${item.change_24h.toFixed(2)}%</span>
+                    </div>
+                `).join('');
+
+                document.getElementById('top-gainers').innerHTML = gainersHtml;
+                document.getElementById('top-losers').innerHTML = losersHtml;
+            }
+
+            async updatePortfolioMetrics() {
+                try {
+                    const response = await fetch('/api/portfolio-metrics');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        // Update balance and P&L
+                        document.getElementById('total-balance').textContent = `$${(data.total_balance || 0).toFixed(2)}`;
+                        document.getElementById('total-pnl').textContent = `$${(data.total_pnl || 0).toFixed(2)}`;
+                        document.getElementById('pnl-percentage').textContent = `${(data.total_pnl_percentage || 0).toFixed(1)}%`;
+                        
+                        // Update positions and trades
+                        document.getElementById('active-positions').textContent = data.active_positions || 0;
+                        document.getElementById('total-trades').textContent = data.total_trades || 0;
+                        document.getElementById('win-rate').textContent = `${(data.win_rate || 0).toFixed(0)}%`;
+                        
+                        // Update active signals metric and growth target
+                        document.getElementById('active-signals').textContent = data.active_positions || 0;
+                        
+                        // Update growth target display if element exists
+                        if (data.growth_target) {
+                            const targetEl = document.getElementById('growth-target');
+                            const progressEl = document.getElementById('target-progress');
+                            
+                            if (targetEl) targetEl.textContent = `$${data.growth_target.target_amount.toLocaleString()}`;
+                            if (progressEl) progressEl.textContent = `${data.growth_target.progress_percentage.toFixed(2)}%`;
+                        }
+                        
+                        // Color coding for P&L
+                        const pnlElement = document.getElementById('total-pnl');
+                        const pnlPercentElement = document.getElementById('pnl-percentage');
+                        
+                        if ((data.total_pnl || 0) >= 0) {
+                            pnlElement.className = 'metric-value text-success-clean';
+                            pnlPercentElement.className = 'metric-value text-success-clean';
+                        } else {
+                            pnlElement.className = 'metric-value text-danger-clean';
+                            pnlPercentElement.className = 'metric-value text-danger-clean';
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error updating portfolio metrics:', error);
+                }
+            }
+
+            displayPortfolioAnalysis(data) {
+                const allocation = data.portfolio_allocation;
+                const riskReport = data.risk_assessment;
+
+                // Portfolio allocation
+                if (allocation && allocation.recommended_allocation) {
+                    const allocationHtml = Object.entries(allocation.recommended_allocation)
+                        .map(([symbol, weight]) => `
+                            <div class="d-flex justify-content-between py-1">
+                                <span>${symbol}</span>
+                                <span>${(weight * 100).toFixed(1)}%</span>
+                            </div>
+                        `).join('');
+
+                    document.getElementById('portfolio-analysis').innerHTML = `
+                        <h6>Recommended Allocation</h6>
+                        ${allocationHtml}
+                        <hr>
+                        <small class="text-muted">Risk Profile: ${allocation.risk_profile}</small>
+                    `;
+                }
+
+                // Risk metrics
+                if (riskReport) {
+                    const riskMetricsHtml = `
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <small class="text-muted">Win Rate</small>
+                                <div class="fw-bold">${riskReport.win_rate.toFixed(1)}%</div>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">Profit Factor</small>
+                                <div class="fw-bold">${riskReport.profit_factor.toFixed(2)}</div>
+                            </div>
+                        </div>
+                    `;
+                    document.getElementById('risk-metrics').innerHTML = riskMetricsHtml;
+                }
+            }
+
+            showBybitSettings(symbol, settings) {
+                try {
+                    const modalContent = `
+                        <div class="bybit-settings">
+                            <h6><i class="fas fa-exchange-alt me-2"></i>Bybit Futures Configuration</h6>
+                            <div class="settings-row">
+                                <span>Symbol:</span>
+                                <span class="fw-bold">${settings.symbol}</span>
+                            </div>
+                            <div class="settings-row">
+                                <span>Side:</span>
+                                <span class="badge ${settings.side === 'BUY' ? 'bg-success' : 'bg-danger'}">${settings.side}</span>
+                            </div>
+                            <div class="settings-row">
+                                <span>Order Type:</span>
+                                <span class="text-info">${settings.orderType}</span>
+                            </div>
+                            <div class="settings-row">
+                                <span>Quantity:</span>
+                                <span class="fw-bold">${settings.qty}</span>
+                            </div>
+                            <div class="settings-row">
+                                <span>Leverage:</span>
+                                <span class="text-warning">${settings.leverage}x</span>
+                            </div>
+                            <div class="settings-row">
+                                <span>Margin Mode:</span>
+                                <span class="text-info">${settings.marginMode}</span>
+                            </div>
+                            <div class="settings-row">
+                                <span>Stop Loss:</span>
+                                <span class="text-danger">$${parseFloat(settings.stopLoss) < 1 ? parseFloat(settings.stopLoss).toFixed(6) : parseFloat(settings.stopLoss).toFixed(2)}</span>
+                            </div>
+                            <div class="settings-row">
+                                <span>Take Profit:</span>
+                                <span class="text-success">$${parseFloat(settings.takeProfit) < 1 ? parseFloat(settings.takeProfit).toFixed(6) : parseFloat(settings.takeProfit).toFixed(2)}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <h6><i class="fas fa-shield-alt me-2"></i>Risk Management</h6>
+                            <div class="trading-card">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <p><strong>Risk Amount:</strong> ${settings.risk_management.risk_amount_usd}</p>
+                                        <p><strong>Risk %:</strong> ${settings.risk_management.risk_percentage}</p>
+                                    </div>
+                                    <div class="col-6">
+                                        <p><strong>Position Value:</strong> ${settings.risk_management.position_value_usd}</p>
+                                        <p><strong>Margin Required:</strong> ${settings.risk_management.margin_required_usd}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <h6><i class="fas fa-clipboard-list me-2"></i>Execution Notes</h6>
+                            <div class="trading-card">
+                                <ul class="mb-0">
+                                    <li>${settings.execution_notes.entry_strategy}</li>
+                                    <li>${settings.execution_notes.stop_loss_type}</li>
+                                    <li>${settings.execution_notes.take_profit_type}</li>
+                                    <li>${settings.execution_notes.position_monitoring}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+
+                    document.getElementById('modal-content').innerHTML = modalContent;
+                    
+                    // Store settings for copying
+                    this.currentBybitSettings = settings;
+                    
+                    const modal = new bootstrap.Modal(document.getElementById('recommendationModal'));
+                    modal.show();
+                } catch (error) {
+                    alert('Error displaying Bybit settings');
+                }
+            }
+
+            copyBybitSettings() {
+                if (!this.currentBybitSettings) return;
+                
+                const settings = {
+                    symbol: this.currentBybitSettings.symbol,
+                    side: this.currentBybitSettings.side,
+                    orderType: this.currentBybitSettings.orderType,
+                    qty: this.currentBybitSettings.qty,
+                    leverage: this.currentBybitSettings.leverage,
+                    stopLoss: this.currentBybitSettings.stopLoss,
+                    takeProfit: this.currentBybitSettings.takeProfit
+                };
+                
+                navigator.clipboard.writeText(JSON.stringify(settings, null, 2))
+                    .then(() => alert('Bybit settings copied to clipboard!'))
+                    .catch(() => alert('Failed to copy settings'));
+            }
+
+            getSignalClass(confidence) {
+                if (confidence >= 80) return 'strong';
+                if (confidence >= 65) return 'moderate';
+                return 'weak';
+            }
+
+            getConfidenceClass(confidence) {
+                if (confidence >= 80) return 'confidence-high';
+                if (confidence >= 65) return 'confidence-medium';
+                return 'confidence-low';
+            }
+
+            getSentimentClass(sentiment) {
+                switch (sentiment.toLowerCase()) {
+                    case 'bullish': 
+                    case 'bullish high':
+                    case 'bullish moderate': return 'text-success-clean';
+                    case 'bearish': 
+                    case 'bearish low':
+                    case 'bearish moderate': return 'text-warning-clean';
+                    case 'neutral': return 'text-info-clean';
+                    default: return 'text-muted-clean';
+                }
+            }
+
+            showError(containerId, message) {
+                document.getElementById(containerId).innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="fas fa-exclamation-triangle text-warning fa-2x mb-3"></i>
+                        <p>${message}</p>
+                    </div>
+                `;
+            }
+
+            startAutoRefresh() {
+                // Refresh every 2 minutes
+                this.refreshInterval = setInterval(() => {
+                    this.loadAllData();
+                }, 120000);
+            }
+
+            stopAutoRefresh() {
+                if (this.refreshInterval) {
+                    clearInterval(this.refreshInterval);
+                }
+            }
+        }
+
+
+
+        // Initialize dashboard
+        const dashboard = new ProfessionalDashboard();
+
+        // Copy button event listener
+        document.getElementById('copy-bybit-settings').addEventListener('click', () => {
+            dashboard.copyBybitSettings();
+        });
+
+
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            dashboard.stopAutoRefresh();
+        });
+    </script>
+
+    <!-- Footer Disclaimer -->
+    <footer class="mt-5 py-4" style="background: rgba(0, 0, 0, 0.3); border-top: 1px solid rgba(255, 255, 255, 0.1);">
+        <div class="container">
+            <div class="text-center">
+                <p class="text-muted-clean mb-2" style="font-size: 0.9rem;">
+                    <strong>Risk Disclaimer:</strong> Trading futures involves substantial risk of loss and is not suitable for all investors.
+                </p>
+                <p class="text-muted-clean mb-0" style="font-size: 0.8rem;">
+                    © 2025 TradePro. Please trade responsibly and only risk capital you can afford to lose.
+                </p>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

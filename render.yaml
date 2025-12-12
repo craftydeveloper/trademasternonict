@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: tradepro-bot
+    env: python
+    buildCommand: "pip install -r pyproject.toml"
+    startCommand: "gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 120 main:app"
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: PYTHON_VERSION
+        value: "3.11"

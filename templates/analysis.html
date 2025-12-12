@@ -1,0 +1,1606 @@
+{% extends "base.html" %}
+
+{% block title %}Technical Analysis{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Token Selection -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>Technical Analysis
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label class="form-label">Select Token</label>
+                            <div class="dropdown-container position-relative">
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start" type="button" 
+                                            id="tokenDropdownButton" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <span id="selected-token-text">Choose a token...</span>
+                                    </button>
+                                    <div class="dropdown-menu w-100" id="tokenDropdownMenu" style="max-height: 300px; overflow-y: auto;">
+                                        <div class="p-2 border-bottom">
+                                            <input type="text" class="form-control form-control-sm" id="token-search" 
+                                                   placeholder="Search tokens..." onclick="event.stopPropagation()" 
+                                                   oninput="filterTokens()" onkeyup="filterTokens()">
+                                        </div>
+                                        <div id="token-list">
+                                            <!-- Tokens will be populated here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Quick Actions</label>
+                            <div>
+                                <button class="btn btn-primary me-2" onclick="loadTokenAnalysis()">
+                                    <i class="fas fa-sync me-1"></i>Refresh Analysis
+                                </button>
+                                <button class="btn btn-secondary" onclick="loadAllSignals()">
+                                    <i class="fas fa-list me-1"></i>View All Signals
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analysis Results -->
+    <div class="row" id="analysis-results" style="display: none;">
+        <div class="col-md-8">
+            <!-- Price Chart -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-chart-line me-2"></i>
+                        Price Chart - <span id="chart-token-name">Select Token</span>
+                    </h6>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-primary" id="pan-tool" onclick="togglePanMode()" title="Pan Mode">
+                            <i class="fas fa-arrows-alt"></i> Pan
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" id="zoom-reset" onclick="resetZoom()" title="Reset Zoom">
+                            <i class="fas fa-search-minus"></i> Reset
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" id="draw-line" onclick="toggleDrawingMode('line')" title="Draw Trend Lines">
+                            <i class="fas fa-minus"></i> Line
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" id="draw-rectangle" onclick="toggleDrawingMode('rectangle')" title="Draw Support/Resistance Box">
+                            <i class="fas fa-square"></i> Box
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" id="clear-drawings" onclick="clearDrawings()" title="Clear All Drawings">
+                            <i class="fas fa-eraser"></i> Clear
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="chart-container" style="height: 400px; position: relative;">
+                        <canvas id="price-chart" style="width: 100%; height: 100%;"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <!-- Trading Signal -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">Trading Signal</h6>
+                </div>
+                <div class="card-body text-center">
+                    <div id="signal-badge" class="mb-3"></div>
+                    <div id="confidence-display" class="mb-3"></div>
+                    <p class="text-muted" id="signal-description"></p>
+                </div>
+            </div>
+
+            <!-- Trade Setup -->
+            <div class="card mb-4" id="trade-setup-card" style="display: none;">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-cog me-2"></i>Trade Setup
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div id="trade-setup-content">
+                        <!-- Trade setup details will be populated here -->
+                    </div>
+                    <button class="btn btn-primary btn-sm mt-3" onclick="copyTradeSetup()">
+                        <i class="fas fa-copy me-1"></i>Copy Settings
+                    </button>
+                </div>
+            </div>
+
+            <!-- Key Metrics -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">Key Metrics</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tbody id="metrics-table">
+                            <!-- Metrics will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Bybit Settings -->
+            <div class="card" id="bybit-settings-card" style="display: none;">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-cog me-2"></i>Bybit Settings
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div id="bybit-settings-content">
+                        <!-- Bybit settings will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Technical Indicators -->
+    <div class="row" id="indicators-section" style="display: none;">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Technical Indicators</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Trend Analysis</h6>
+                            <table class="table table-sm">
+                                <tbody id="trend-indicators">
+                                    <!-- Trend indicators will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Momentum & Volume</h6>
+                            <table class="table table-sm">
+                                <tbody id="momentum-indicators">
+                                    <!-- Momentum indicators will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div class="row" id="analysis-loading">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+                    <h5>Technical Analysis</h5>
+                    <p class="text-muted">Select a token above to view detailed technical analysis with charts and indicators.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Analysis page functionality
+let currentChart = null;
+let tokens = [];
+let allTokens = [];
+let selectedTokenSymbol = '';
+
+// Load page data
+document.addEventListener('DOMContentLoaded', function() {
+    loadAvailableTokens();
+    setupSearchFilter();
+});
+
+function setupSearchFilter() {
+    // Use a small delay to ensure DOM is fully loaded
+    setTimeout(() => {
+        const searchInput = document.getElementById('token-search');
+        if (searchInput) {
+            console.log('Search input found, setting up event listeners');
+            // Add event listeners for real-time search
+            searchInput.addEventListener('input', filterTokens);
+            searchInput.addEventListener('keyup', filterTokens);
+            searchInput.addEventListener('paste', function() {
+                setTimeout(filterTokens, 10); // Small delay for paste events
+            });
+            console.log('Search event listeners attached successfully');
+        } else {
+            console.log('Search input not found, retrying...');
+            // Retry if not found
+            setTimeout(setupSearchFilter, 500);
+        }
+    }, 100);
+}
+
+function loadAvailableTokens() {
+    // Direct comprehensive token list implementation
+    const comprehensiveTokens = [
+        // Major cryptocurrencies
+        {'symbol': 'BTC', 'name': 'Bitcoin', 'category': 'Major'},
+        {'symbol': 'ETH', 'name': 'Ethereum', 'category': 'Major'},
+        {'symbol': 'BNB', 'name': 'BNB', 'category': 'Major'},
+        {'symbol': 'XRP', 'name': 'Ripple', 'category': 'Major'},
+        {'symbol': 'ADA', 'name': 'Cardano', 'category': 'Major'},
+        {'symbol': 'DOGE', 'name': 'Dogecoin', 'category': 'Major'},
+        {'symbol': 'SOL', 'name': 'Solana', 'category': 'Major'},
+        {'symbol': 'TRX', 'name': 'Tron', 'category': 'Major'},
+        {'symbol': 'DOT', 'name': 'Polkadot', 'category': 'Major'},
+        {'symbol': 'MATIC', 'name': 'Polygon', 'category': 'Major'},
+        {'symbol': 'LTC', 'name': 'Litecoin', 'category': 'Major'},
+        {'symbol': 'SHIB', 'name': 'Shiba Inu', 'category': 'Major'},
+        {'symbol': 'AVAX', 'name': 'Avalanche', 'category': 'Major'},
+        {'symbol': 'UNI', 'name': 'Uniswap', 'category': 'Major'},
+        {'symbol': 'LINK', 'name': 'Chainlink', 'category': 'Major'},
+        {'symbol': 'ATOM', 'name': 'Cosmos', 'category': 'Major'},
+        {'symbol': 'ETC', 'name': 'Ethereum Classic', 'category': 'Major'},
+        {'symbol': 'XLM', 'name': 'Stellar', 'category': 'Major'},
+        {'symbol': 'BCH', 'name': 'Bitcoin Cash', 'category': 'Major'},
+        {'symbol': 'NEAR', 'name': 'NEAR Protocol', 'category': 'Major'},
+        {'symbol': 'FTM', 'name': 'Fantom', 'category': 'Major'},
+        {'symbol': 'ALGO', 'name': 'Algorand', 'category': 'Major'},
+        {'symbol': 'HBAR', 'name': 'Hedera', 'category': 'Major'},
+        {'symbol': 'FLOW', 'name': 'Flow', 'category': 'Major'},
+        {'symbol': 'ICP', 'name': 'Internet Computer', 'category': 'Major'},
+        
+        // DeFi tokens
+        {'symbol': 'AAVE', 'name': 'Aave', 'category': 'DeFi'},
+        {'symbol': 'MKR', 'name': 'Maker', 'category': 'DeFi'},
+        {'symbol': 'COMP', 'name': 'Compound', 'category': 'DeFi'},
+        {'symbol': 'YFI', 'name': 'Yearn Finance', 'category': 'DeFi'},
+        {'symbol': 'SUSHI', 'name': 'SushiSwap', 'category': 'DeFi'},
+        {'symbol': 'CRV', 'name': 'Curve DAO', 'category': 'DeFi'},
+        {'symbol': 'SNX', 'name': 'Synthetix', 'category': 'DeFi'},
+        {'symbol': 'BAL', 'name': 'Balancer', 'category': 'DeFi'},
+        {'symbol': 'LDO', 'name': 'Lido DAO', 'category': 'DeFi'},
+        {'symbol': 'DYDX', 'name': 'dYdX', 'category': 'DeFi'},
+        {'symbol': 'GMX', 'name': 'GMX', 'category': 'DeFi'},
+        {'symbol': 'INJ', 'name': 'Injective Protocol', 'category': 'DeFi'},
+        {'symbol': '1INCH', 'name': '1inch Network', 'category': 'DeFi'},
+        {'symbol': 'CAKE', 'name': 'PancakeSwap', 'category': 'DeFi'},
+        
+        // Layer 1 blockchains
+        {'symbol': 'THETA', 'name': 'Theta Network', 'category': 'Layer 1'},
+        {'symbol': 'XTZ', 'name': 'Tezos', 'category': 'Layer 1'},
+        {'symbol': 'ZEC', 'name': 'Zcash', 'category': 'Layer 1'},
+        {'symbol': 'DASH', 'name': 'Dash', 'category': 'Layer 1'},
+        {'symbol': 'SUI', 'name': 'Sui', 'category': 'Layer 1'},
+        {'symbol': 'APT', 'name': 'Aptos', 'category': 'Layer 1'},
+        {'symbol': 'SEI', 'name': 'Sei', 'category': 'Layer 1'},
+        {'symbol': 'TIA', 'name': 'Celestia', 'category': 'Layer 1'},
+        {'symbol': 'TON', 'name': 'Toncoin', 'category': 'Layer 1'},
+        {'symbol': 'KAVA', 'name': 'Kava', 'category': 'Layer 1'},
+        {'symbol': 'RUNE', 'name': 'THORChain', 'category': 'Layer 1'},
+        {'symbol': 'OSMO', 'name': 'Osmosis', 'category': 'Layer 1'},
+        {'symbol': 'JUNO', 'name': 'Juno Network', 'category': 'Layer 1'},
+        {'symbol': 'SCRT', 'name': 'Secret Network', 'category': 'Layer 1'},
+        
+        // Layer 2 and scaling
+        {'symbol': 'ARB', 'name': 'Arbitrum', 'category': 'Layer 2'},
+        {'symbol': 'OP', 'name': 'Optimism', 'category': 'Layer 2'},
+        {'symbol': 'STRK', 'name': 'Starknet', 'category': 'Layer 2'},
+        {'symbol': 'IMX', 'name': 'Immutable X', 'category': 'Layer 2'},
+        {'symbol': 'MANTA', 'name': 'Manta Network', 'category': 'Layer 2'},
+        
+        // Gaming and metaverse
+        {'symbol': 'AXS', 'name': 'Axie Infinity', 'category': 'Gaming'},
+        {'symbol': 'SAND', 'name': 'The Sandbox', 'category': 'Gaming'},
+        {'symbol': 'MANA', 'name': 'Decentraland', 'category': 'Gaming'},
+        {'symbol': 'ENJ', 'name': 'Enjin Coin', 'category': 'Gaming'},
+        {'symbol': 'GALA', 'name': 'Gala', 'category': 'Gaming'},
+        {'symbol': 'APE', 'name': 'ApeCoin', 'category': 'Gaming'},
+        {'symbol': 'GMT', 'name': 'Green Metaverse Token', 'category': 'Gaming'},
+        {'symbol': 'CHZ', 'name': 'Chiliz', 'category': 'Gaming'},
+        {'symbol': 'ALICE', 'name': 'MyNeighborAlice', 'category': 'Gaming'},
+        {'symbol': 'TLM', 'name': 'Alien Worlds', 'category': 'Gaming'},
+        {'symbol': 'ILV', 'name': 'Illuvium', 'category': 'Gaming'},
+        {'symbol': 'YGG', 'name': 'Yield Guild Games', 'category': 'Gaming'},
+        
+        // Meme coins
+        {'symbol': 'PEPE', 'name': 'Pepe', 'category': 'Meme'},
+        {'symbol': 'FLOKI', 'name': 'Floki Inu', 'category': 'Meme'},
+        {'symbol': 'BONK', 'name': 'Bonk', 'category': 'Meme'},
+        {'symbol': 'WIF', 'name': 'dogwifhat', 'category': 'Meme'},
+        {'symbol': 'BOME', 'name': 'Book of Meme', 'category': 'Meme'},
+        {'symbol': 'MEME', 'name': 'Memecoin', 'category': 'Meme'},
+        {'symbol': 'BRETT', 'name': 'Brett', 'category': 'Meme'},
+        {'symbol': 'POPCAT', 'name': 'Popcat', 'category': 'Meme'},
+        {'symbol': 'MEW', 'name': 'cat in a dogs world', 'category': 'Meme'},
+        
+        // AI and tech
+        {'symbol': 'RNDR', 'name': 'Render Token', 'category': 'AI'},
+        {'symbol': 'FET', 'name': 'Fetch.ai', 'category': 'AI'},
+        {'symbol': 'OCEAN', 'name': 'Ocean Protocol', 'category': 'AI'},
+        {'symbol': 'TAO', 'name': 'Bittensor', 'category': 'AI'},
+        {'symbol': 'AGIX', 'name': 'SingularityNET', 'category': 'AI'},
+        {'symbol': 'PHB', 'name': 'Phoenix Global', 'category': 'AI'},
+        {'symbol': 'AI', 'name': 'Sleepless AI', 'category': 'AI'},
+        
+        // Trending and new
+        {'symbol': 'JUP', 'name': 'Jupiter', 'category': 'Trending'},
+        {'symbol': 'PYTH', 'name': 'Pyth Network', 'category': 'Trending'},
+        {'symbol': 'JTO', 'name': 'Jito', 'category': 'Trending'},
+        {'symbol': 'W', 'name': 'Wormhole', 'category': 'Trending'},
+        {'symbol': 'ENA', 'name': 'Ethena', 'category': 'Trending'},
+        {'symbol': 'ONDO', 'name': 'Ondo Finance', 'category': 'Trending'},
+        {'symbol': 'SLERF', 'name': 'Slerf', 'category': 'Trending'},
+        {'symbol': 'MOTHER', 'name': 'MOTHER', 'category': 'Trending'},
+        
+        // NFT tokens
+        {'symbol': 'BLUR', 'name': 'Blur', 'category': 'NFT'},
+        {'symbol': 'LOOKS', 'name': 'LooksRare', 'category': 'NFT'},
+        {'symbol': 'X2Y2', 'name': 'X2Y2', 'category': 'NFT'},
+        
+        // Infrastructure
+        {'symbol': 'GRT', 'name': 'The Graph', 'category': 'Infrastructure'},
+        {'symbol': 'MASK', 'name': 'Mask Network', 'category': 'Infrastructure'},
+        {'symbol': 'AR', 'name': 'Arweave', 'category': 'Infrastructure'},
+        {'symbol': 'STORJ', 'name': 'Storj', 'category': 'Infrastructure'}
+    ];
+    
+    tokens = comprehensiveTokens;
+    populateTokenSelect(tokens);
+    console.log('Comprehensive Bybit tokens loaded:', tokens.length);
+}
+
+function populateTokenSelect(tokens) {
+    allTokens = tokens; // Store for filtering
+    renderTokenList(tokens);
+}
+
+function renderTokenList(tokens) {
+    const tokenList = document.getElementById('token-list');
+    tokenList.innerHTML = '';
+    
+    console.log(`Rendering ${tokens.length} tokens to dropdown`);
+    
+    // Check if this is a search result
+    const searchInput = document.getElementById('token-search');
+    const isSearching = searchInput && searchInput.value.trim().length > 0;
+    
+    if (isSearching) {
+        // For search results, show simple flat list
+        console.log('Rendering search results');
+        if (tokens.length === 0) {
+            const noResults = document.createElement('div');
+            noResults.className = 'dropdown-item-text text-muted text-center py-3';
+            noResults.innerHTML = '<i class="fas fa-search me-2"></i>No tokens found';
+            tokenList.appendChild(noResults);
+        } else {
+            tokens.forEach(token => {
+                const item = createTokenItem(token, 'text-light');
+                tokenList.appendChild(item);
+            });
+        }
+    } else {
+        // For full list, show by category
+        console.log('Rendering full categorized list');
+        const categories = {};
+        tokens.forEach(token => {
+            const category = token.category || 'Other';
+            if (!categories[category]) {
+                categories[category] = [];
+            }
+            categories[category].push(token);
+        });
+        
+        const categoryOrder = ['Major', 'DeFi', 'Layer 1', 'Layer 2', 'Gaming', 'Meme', 'AI', 'Trending', 'NFT', 'Infrastructure'];
+        
+        categoryOrder.forEach(categoryName => {
+            if (categories[categoryName] && categories[categoryName].length > 0) {
+                const categoryHeader = document.createElement('h6');
+                categoryHeader.className = 'dropdown-header text-primary';
+                categoryHeader.innerHTML = `<i class="fas fa-coins me-1"></i>${categoryName} (${categories[categoryName].length})`;
+                tokenList.appendChild(categoryHeader);
+                
+                categories[categoryName].forEach(token => {
+                    const item = createTokenItem(token, 'text-light');
+                    tokenList.appendChild(item);
+                });
+            }
+        });
+    }
+}
+
+function createTokenItem(token, colorClass, disabled = false) {
+    const item = document.createElement('a');
+    item.className = `dropdown-item d-flex justify-content-between align-items-center ${disabled ? 'disabled' : ''}`;
+    item.href = '#';
+    item.style.cursor = disabled ? 'not-allowed' : 'pointer';
+    
+    if (!disabled) {
+        item.onclick = (e) => {
+            e.preventDefault();
+            selectToken(token.symbol, `${token.symbol} - ${token.name}`);
+        };
+    }
+    
+    item.innerHTML = `
+        <div>
+            <strong class="${colorClass}">${token.symbol}</strong>
+            <small class="text-muted d-block">${token.name}</small>
+        </div>
+        <i class="fas fa-chevron-right text-muted" style="font-size: 0.8em;"></i>
+    `;
+    
+    return item;
+}
+
+function selectToken(symbol, displayText) {
+    selectedTokenSymbol = symbol;
+    document.getElementById('selected-token-text').textContent = displayText;
+    
+    // Close dropdown
+    const dropdown = bootstrap.Dropdown.getInstance(document.getElementById('tokenDropdownButton'));
+    if (dropdown) {
+        dropdown.hide();
+    }
+    
+    // Clear search
+    document.getElementById('token-search').value = '';
+    
+    // Load analysis
+    loadTokenAnalysis();
+}
+
+function filterTokens() {
+    const searchInput = document.getElementById('token-search');
+    if (!searchInput) {
+        console.log('Search input not found');
+        return;
+    }
+    
+    const searchTerm = searchInput.value.toLowerCase().trim();
+    console.log(`Searching for: "${searchTerm}"`);
+    console.log(`Total tokens available: ${allTokens.length}`);
+    
+    let filteredTokens;
+    if (searchTerm.length === 0) {
+        filteredTokens = allTokens;
+    } else {
+        filteredTokens = allTokens.filter(token => {
+            const symbolMatch = token.symbol.toLowerCase().includes(searchTerm);
+            const nameMatch = token.name.toLowerCase().includes(searchTerm);
+            const categoryMatch = token.category.toLowerCase().includes(searchTerm);
+            const match = symbolMatch || nameMatch || categoryMatch;
+            
+            if (searchTerm === 'pepe' && token.symbol === 'PEPE') {
+                console.log(`PEPE token check: symbol="${token.symbol}", name="${token.name}", match=${match}`);
+            }
+            
+            return match;
+        });
+    }
+    
+    console.log(`Search "${searchTerm}" found ${filteredTokens.length} tokens`);
+    if (searchTerm === 'pepe') {
+        console.log('Filtered tokens for PEPE:', filteredTokens.map(t => t.symbol));
+    }
+    
+    // Update the dropdown with filtered results
+    renderTokenList(filteredTokens);
+}
+
+function loadTokenAnalysis() {
+    if (!selectedTokenSymbol) {
+        showLoadingState();
+        return;
+    }
+
+    showAnalysisLoading();
+    
+    // Load analysis data
+    fetch(`/api/analysis/${selectedTokenSymbol}`)
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Analysis data received:', data);
+        if (data && (data.symbol || data.current_price)) {
+            // Direct analysis data format from fixed API
+            displayAnalysis(selectedTokenSymbol, data);
+            showAnalysisResults();
+        } else if (data.analysis) {
+            // Wrapped analysis data format
+            displayAnalysis(selectedTokenSymbol, data.analysis);
+            showAnalysisResults();
+        } else {
+            throw new Error(data.error || 'Invalid response format');
+        }
+    })
+    .catch(error => {
+        console.error('Error loading analysis:', error);
+        showError(`Error loading analysis for ${selectedTokenSymbol}: ${error.message}`);
+    });
+}
+
+function displayAnalysis(symbol, analysis) {
+    console.log('displayAnalysis called with:', symbol, analysis);
+    
+    try {
+        // Update chart token name
+        const chartTokenName = document.getElementById('chart-token-name');
+        if (chartTokenName) {
+            chartTokenName.textContent = symbol;
+        }
+        
+        // Display trading signal
+        displayTradingSignal(analysis);
+        
+        // Display key metrics
+        displayKeyMetrics(analysis);
+        
+        // Display technical indicators
+        displayTechnicalIndicators(analysis.technical_indicators || {});
+        
+        // Display Bybit settings
+        displayBybitSettings(analysis.bybit_settings || {});
+        
+        // Create price chart
+        createPriceChart(symbol, analysis);
+        
+        console.log('Analysis display completed successfully');
+    } catch (error) {
+        console.error('Error in displayAnalysis:', error.message || error);
+        // Don't show error to user if it's just a minor display issue
+        if (error.message && error.message.includes('critical')) {
+            showError(`Failed to display analysis: ${error.message}`);
+        }
+    }
+}
+
+function displayTradingSignal(analysis) {
+    try {
+        const signalBadge = document.getElementById('signal-badge');
+        const confidenceDisplay = document.getElementById('confidence-display');
+        const signalDescription = document.getElementById('signal-description');
+        
+        const signal = analysis.recommendation?.action || 'HOLD';
+        const confidence = Math.round(analysis.recommendation?.confidence || 0);
+        
+        console.log('Displaying signal:', signal, 'Confidence:', confidence);
+        
+        // Signal badge
+        if (signalBadge) {
+            const badgeClass = signal === 'BUY' ? 'bg-success' : signal === 'SELL' ? 'bg-danger' : 'bg-secondary';
+            signalBadge.innerHTML = `<span class="badge ${badgeClass} fs-4">${signal}</span>`;
+        }
+        
+        // Confidence display
+        if (confidenceDisplay) {
+            const confidenceClass = confidence >= 70 ? 'text-success' : confidence >= 50 ? 'text-warning' : 'text-danger';
+            confidenceDisplay.innerHTML = `
+                <div class="progress mb-2">
+                    <div class="progress-bar ${confidenceClass.replace('text-', 'bg-')}" 
+                         style="width: ${confidence}%"></div>
+                </div>
+                <small class="${confidenceClass}">Confidence: ${confidence}%</small>
+            `;
+        }
+        
+        // Signal description
+        if (signalDescription) {
+            const descriptions = {
+                'BUY': 'Technical indicators suggest a bullish trend. Consider entering a long position.',
+                'SELL': 'Technical indicators suggest a bearish trend. Consider exiting positions or going short.',
+                'HOLD': 'Mixed signals or neutral trend. Wait for clearer market direction.'
+            };
+            signalDescription.textContent = descriptions[signal];
+        }
+        
+        // Display trade setup if signal is actionable
+        if (signal !== 'HOLD') {
+            displayTradeSetup(analysis, signal);
+        }
+        
+        console.log('Trading signal displayed successfully');
+    } catch (error) {
+        console.error('Error displaying trading signal:', error);
+    }
+}
+
+function displayTradeSetup(analysis, signal) {
+    try {
+        const tradeSetupCard = document.getElementById('trade-setup-card');
+        const tradeSetupContent = document.getElementById('trade-setup-content');
+        
+        if (!tradeSetupCard || !tradeSetupContent) {
+            console.log('Trade setup elements not found');
+            return;
+        }
+        
+        const currentPrice = analysis.current_price || 0;
+        const confidence = Math.round((analysis.confidence || 0) * 100);
+        const volatility = analysis.volatility || 15;
+        
+        // Calculate trade parameters
+        const leverage = calculateOptimalLeverage(volatility);
+        const accountBalance = 53.13; // Current account balance
+        const riskPercentage = 5; // 5% risk per trade
+        const riskAmount = accountBalance * (riskPercentage / 100);
+    
+    let stopLoss, takeProfit, qty;
+    
+    if (signal === 'BUY') {
+        stopLoss = currentPrice * 0.97; // 3% stop loss
+        takeProfit = currentPrice * 1.06; // 6% take profit
+    } else { // SELL
+        stopLoss = currentPrice * 1.03; // 3% stop loss
+        takeProfit = currentPrice * 0.94; // 6% take profit
+    }
+    
+    // Calculate position size
+    const stopLossDistance = Math.abs(currentPrice - stopLoss);
+    const positionValue = riskAmount / (stopLossDistance / currentPrice);
+    qty = (positionValue / currentPrice).toFixed(4);
+    
+    const symbol = selectedTokenSymbol || 'TOKEN';
+    
+    tradeSetupContent.innerHTML = `
+        <div class="row g-2">
+            <div class="col-6">
+                <small class="text-muted">Symbol:</small>
+                <div class="fw-bold">${symbol}USDT</div>
+            </div>
+            <div class="col-6">
+                <small class="text-muted">Side:</small>
+                <div class="fw-bold text-${signal === 'BUY' ? 'success' : 'danger'}">${signal}</div>
+            </div>
+            <div class="col-6">
+                <small class="text-muted">Order Type:</small>
+                <div>Market</div>
+            </div>
+            <div class="col-6">
+                <small class="text-muted">Leverage:</small>
+                <div class="fw-bold">${leverage}x</div>
+            </div>
+            <div class="col-6">
+                <small class="text-muted">Quantity:</small>
+                <div class="fw-bold">${qty}</div>
+            </div>
+            <div class="col-6">
+                <small class="text-muted">Margin Mode:</small>
+                <div>Isolated</div>
+            </div>
+            <div class="col-12">
+                <small class="text-muted">Entry Price:</small>
+                <div class="fw-bold">$${currentPrice.toFixed(6)}</div>
+            </div>
+            <div class="col-6">
+                <small class="text-muted">Stop Loss:</small>
+                <div class="text-danger">$${stopLoss.toFixed(6)}</div>
+            </div>
+            <div class="col-6">
+                <small class="text-muted">Take Profit:</small>
+                <div class="text-success">$${takeProfit.toFixed(6)}</div>
+            </div>
+            <div class="col-12">
+                <small class="text-muted">Time in Force:</small>
+                <div>GTC (Good Till Cancelled)</div>
+            </div>
+            <div class="col-12 mt-2">
+                <small class="text-muted">Confidence Level:</small>
+                <div class="fw-bold text-primary">${confidence}%</div>
+            </div>
+        </div>
+    `;
+    
+    // Store trade setup for copying
+    window.currentTradeSetup = {
+        symbol: `${symbol}USDT`,
+        side: signal,
+        orderType: 'Market',
+        qty: qty,
+        leverage: leverage,
+        marginMode: 'isolated',
+        entryPrice: currentPrice.toFixed(6),
+        stopLoss: stopLoss.toFixed(6),
+        takeProfit: takeProfit.toFixed(6),
+        timeInForce: 'GTC',
+        riskAmount: riskAmount.toFixed(2),
+        riskPercentage: riskPercentage,
+        confidence: confidence
+    };
+    
+    tradeSetupCard.style.display = 'block';
+        
+        console.log('Trade setup displayed');
+    } catch (error) {
+        console.error('Error displaying trade setup:', error);
+    }
+}
+
+function calculateOptimalLeverage(volatility) {
+    // Conservative leverage based on volatility
+    if (volatility > 20) return 3;
+    if (volatility > 15) return 5;
+    if (volatility > 10) return 8;
+    return 10;
+}
+
+function getCurrentTokenSymbol() {
+    return selectedTokenSymbol || null;
+}
+
+function copyTradeSetup() {
+    if (!window.currentTradeSetup) return;
+    
+    const setup = window.currentTradeSetup;
+    const text = `Bybit Futures Trade Setup:
+Symbol: ${setup.symbol}
+Side: ${setup.side}
+Order Type: ${setup.orderType}
+Quantity: ${setup.qty}
+Leverage: ${setup.leverage}x
+Margin Mode: ${setup.marginMode}
+Entry Price: $${setup.entryPrice}
+Stop Loss: $${setup.stopLoss}
+Take Profit: $${setup.takeProfit}
+Time in Force: ${setup.timeInForce}
+
+Confidence: ${setup.confidence}%`;
+    
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check me-1"></i>Copied!';
+        btn.classList.add('btn-success');
+        btn.classList.remove('btn-primary');
+        
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-primary');
+        }, 2000);
+    }).catch(err => {
+        console.error('Failed to copy: ', err);
+        alert('Failed to copy to clipboard');
+    });
+}
+
+function displayKeyMetrics(analysis) {
+    try {
+        const table = document.getElementById('metrics-table');
+        
+        if (!table) {
+            console.log('Metrics table not found');
+            return;
+        }
+    
+        const metrics = [
+            ['Current Price', `$${formatPrice(analysis.current_price || 0)}`],
+            ['24h Change', formatPercentage(analysis.price_change_24h || 0)],
+            ['Volume 24h', `$${(analysis.volume_24h || 0).toLocaleString()}`],
+            ['Confidence', `${Math.round(analysis.recommendation?.confidence || 0)}%`],
+            ['Risk Level', analysis.recommendation?.risk_level || 'N/A'],
+            ['Timeframe', analysis.recommendation?.timeframe || 'N/A']
+        ];
+        
+        table.innerHTML = metrics.map(([label, value]) => `
+            <tr>
+                <td><strong>${label}:</strong></td>
+                <td>${value}</td>
+            </tr>
+        `).join('');
+        
+        console.log('Key metrics displayed');
+    } catch (error) {
+        console.error('Error displaying key metrics:', error);
+    }
+}
+
+function displayBybitSettings(bybitSettings) {
+    try {
+        const settingsContainer = document.getElementById('bybit-settings-content');
+        const settingsCard = document.getElementById('bybit-settings-card');
+        
+        if (!settingsContainer) {
+            console.log('Bybit settings container not found');
+            return;
+        }
+        
+        // Show the settings card
+        if (settingsCard) {
+            settingsCard.style.display = 'block';
+        }
+        
+        const settings = [
+            ['Symbol', bybitSettings.symbol || 'N/A'],
+            ['Side', bybitSettings.side || 'N/A'],
+            ['Order Type', bybitSettings.orderType || 'Market'],
+            ['Leverage', `${bybitSettings.leverage || '1'}x`],
+            ['Margin Mode', bybitSettings.marginMode || 'isolated'],
+            ['Quantity', bybitSettings.qty || '0'],
+            ['Stop Loss', bybitSettings.stopLoss || 'N/A'],
+            ['Take Profit', bybitSettings.takeProfit || 'N/A'],
+            ['Time in Force', bybitSettings.timeInForce || 'GTC']
+        ];
+        
+        settingsContainer.innerHTML = `
+            <div class="row g-3">
+                ${settings.map(([label, value]) => `
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">${label}:</span>
+                            <span class="fw-bold">${value}</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="mt-3">
+                <button class="btn btn-primary btn-sm" onclick="copyBybitSettings()">
+                    <i class="fas fa-copy me-1"></i>Copy Settings
+                </button>
+            </div>
+        `;
+        
+        console.log('Bybit settings displayed');
+    } catch (error) {
+        console.error('Error displaying Bybit settings:', error);
+    }
+}
+
+function copyBybitSettings() {
+    const settingsText = document.getElementById('bybit-settings-content').innerText;
+    navigator.clipboard.writeText(settingsText).then(() => {
+        console.log('Bybit settings copied to clipboard');
+    }).catch(err => {
+        console.error('Failed to copy Bybit settings:', err);
+    });
+}
+
+function createPriceChart(symbol, analysis) {
+    try {
+        const chartCanvas = document.getElementById('price-chart');
+        
+        if (!chartCanvas) {
+            console.log('Chart canvas not found');
+            return;
+        }
+        
+        // Check if Chart.js is loaded
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js not loaded');
+            return;
+        }
+        
+        // Destroy existing chart if it exists
+        if (currentChart) {
+            currentChart.destroy();
+            currentChart = null;
+        }
+        
+        const ctx = chartCanvas.getContext('2d');
+        const currentPrice = analysis.current_price || 0;
+        const change24h = analysis.price_change_24h || 0;
+        
+        console.log('Creating chart for', symbol, 'at price', currentPrice, 'with change', change24h);
+        
+        // Generate simple price data
+        const labels = ['6h ago', '4h ago', '2h ago', '1h ago', 'Now'];
+        const basePrice = currentPrice / (1 + change24h / 100);
+        const dataPoints = [
+            basePrice,
+            basePrice * (1 + change24h * 0.25 / 100),
+            basePrice * (1 + change24h * 0.5 / 100),
+            basePrice * (1 + change24h * 0.75 / 100),
+            currentPrice
+        ];
+        
+        const isPositive = change24h >= 0;
+        const chartColor = isPositive ? '#10b981' : '#ef4444';
+        
+        // Visual price display implementation - use canvas parent or create container
+        let chartContainer = document.getElementById('chart-container');
+        if (!chartContainer) {
+            chartContainer = document.getElementById('price-chart');
+            if (!chartContainer) {
+                console.error('No chart container found');
+                return;
+            }
+        }
+        
+        const trendIcon = isPositive ? '📈' : '📉';
+        const supportLevel = analysis.technical_indicators?.support_level || (currentPrice * 0.95);
+        const resistanceLevel = analysis.technical_indicators?.resistance_level || (currentPrice * 1.05);
+        
+        // Format price for display
+        const formatPrice = (price) => {
+            if (price < 1) return price.toFixed(6);
+            if (price < 10) return price.toFixed(4);
+            return price.toFixed(2);
+        };
+        
+        chartContainer.innerHTML = `
+            <div class="d-flex flex-column justify-content-center align-items-center h-100 text-center">
+                <div class="mb-4">
+                    <div style="font-size: 4rem;">${trendIcon}</div>
+                    <h3 class="mb-2">${symbol} Price Analysis</h3>
+                    <div class="fs-1 fw-bold mb-2" style="color: ${chartColor};">$${formatPrice(currentPrice)}</div>
+                    <div class="fs-5" style="color: ${chartColor};">
+                        ${isPositive ? '+' : ''}${change24h.toFixed(2)}% (24h)
+                    </div>
+                </div>
+                <div class="row text-center w-100">
+                    <div class="col-4">
+                        <div class="text-muted small">Support</div>
+                        <div class="fw-bold">$${formatPrice(supportLevel)}</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="text-muted small">Current</div>
+                        <div class="fw-bold">$${formatPrice(currentPrice)}</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="text-muted small">Resistance</div>
+                        <div class="fw-bold">$${formatPrice(resistanceLevel)}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        console.log('Price chart display updated successfully');
+        
+    } catch (error) {
+        console.error('Error creating price chart:', error);
+        // Fallback to simple price display
+        if (chartContainer) {
+            chartContainer.innerHTML = `
+                <div class="text-center py-5">
+                    <h4>${symbol}</h4>
+                    <h2 style="color: ${chartColor};">$${currentPrice.toLocaleString()}</h2>
+                    <p style="color: ${chartColor};">${isPositive ? '+' : ''}${change24h.toFixed(2)}% (24h)</p>
+                </div>
+            `;
+        }
+    }
+        
+    console.log('Price chart created successfully');
+}
+
+function displayTechnicalIndicators(indicators) {
+    try {
+        const trendTable = document.getElementById('trend-indicators');
+        const momentumTable = document.getElementById('momentum-indicators');
+        
+        if (!trendTable || !momentumTable) {
+            console.log('Technical indicator tables not found');
+            return;
+        }
+        
+        // Trend indicators
+        const trendData = [
+            ['SMA Trend', indicators.sma_trend || 'N/A'],
+            ['MACD Trend', indicators.macd_trend || 'N/A'],
+            ['Support Levels', indicators.support_levels || 0],
+            ['Resistance Levels', indicators.resistance_levels || 0]
+        ];
+        
+        trendTable.innerHTML = trendData.map(([label, value]) => `
+            <tr>
+                <td><strong>${label}:</strong></td>
+                <td>${value}</td>
+            </tr>
+        `).join('');
+        
+        // Momentum indicators
+        const momentumData = [
+            ['RSI', Math.round(indicators.rsi || 0)],
+            ['Price Momentum', indicators.price_momentum || 'N/A'],
+            ['Trend Strength', Math.round((indicators.trend_strength || 0) * 100) + '%'],
+            ['Volume Ratio', indicators.volume_ratio ? indicators.volume_ratio.toFixed(2) : 'N/A']
+        ];
+        
+        momentumTable.innerHTML = momentumData.map(([label, value]) => `
+            <tr>
+                <td><strong>${label}:</strong></td>
+                <td>${value}</td>
+            </tr>
+        `).join('');
+        
+        console.log('Technical indicators displayed');
+    } catch (error) {
+        console.error('Error displaying technical indicators:', error);
+    }
+}
+
+function createPriceChart(priceData) {
+    try {
+        const ctx = document.getElementById('price-chart').getContext('2d');
+        
+        // Use visual price display instead of Chart.js
+        console.log('Creating chart with data:', 3, 'points');
+        
+        currentChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Price',
+                data: prices,
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                tension: 0.1,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    grid: { 
+                        color: 'rgba(255, 255, 255, 0.1)' 
+                    },
+                    ticks: { 
+                        color: '#fff',
+                        maxTicksLimit: 10
+                    }
+                },
+                y: {
+                    beginAtZero: false,
+                    grid: { 
+                        color: 'rgba(255, 255, 255, 0.1)' 
+                    },
+                    ticks: {
+                        color: '#fff',
+                        callback: function(value) {
+                            return '$' + value.toFixed(2);
+                        }
+                    }
+                }
+            }
+        }
+    });
+    
+    } catch (error) {
+        console.error('Error creating chart:', error);
+        const ctx = document.getElementById('price-chart').getContext('2d');
+        ctx.fillStyle = '#8b949e';
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Chart loading error', ctx.canvas.width / 2, ctx.canvas.height / 2);
+    }
+}
+
+function loadAllSignals() {
+    window.location.href = '/';
+}
+
+function showAnalysisResults() {
+    document.getElementById('analysis-loading').style.display = 'none';
+    document.getElementById('analysis-results').style.display = 'block';
+    document.getElementById('indicators-section').style.display = 'block';
+}
+
+function showLoadingState() {
+    document.getElementById('analysis-results').style.display = 'none';
+    document.getElementById('indicators-section').style.display = 'none';
+    document.getElementById('analysis-loading').style.display = 'block';
+}
+
+function showAnalysisLoading() {
+    const loadingDiv = document.getElementById('analysis-loading');
+    const resultsDiv = document.getElementById('analysis-results');
+    
+    if (loadingDiv) {
+        loadingDiv.innerHTML = `
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center py-5">
+                        <div class="spinner-border text-primary mb-3" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <h5>Analyzing ${selectedTokenSymbol || 'Token'}</h5>
+                        <p class="text-muted">Running technical analysis...</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        loadingDiv.style.display = 'block';
+    }
+    
+    if (resultsDiv) {
+        resultsDiv.style.display = 'none';
+    }
+}
+
+function showLoadingState() {
+    const resultsDiv = document.getElementById('analysis-results');
+    const loadingDiv = document.getElementById('analysis-loading');
+    if (resultsDiv) resultsDiv.style.display = 'none';
+    if (loadingDiv) loadingDiv.style.display = 'block';
+}
+
+function showAnalysisResults() {
+    const loadingDiv = document.getElementById('analysis-loading');
+    const resultsDiv = document.getElementById('analysis-results');
+    const indicatorsDiv = document.getElementById('indicators-section');
+    
+    if (loadingDiv) loadingDiv.style.display = 'none';
+    if (resultsDiv) resultsDiv.style.display = 'block';
+    if (indicatorsDiv) indicatorsDiv.style.display = 'block';
+    
+    console.log('Analysis results shown');
+}
+
+function showError(message) {
+    const loadingDiv = document.getElementById('analysis-loading');
+    if (loadingDiv) {
+        loadingDiv.innerHTML = `
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center py-4">
+                        <i class="fas fa-exclamation-triangle text-warning mb-3" style="font-size: 2rem;"></i>
+                        <h5>Error</h5>
+                        <p class="text-muted">${message}</p>
+                        <button class="btn btn-primary" onclick="loadTokenAnalysis()">Try Again</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        loadingDiv.style.display = 'block';
+    }
+}
+
+function formatPrice(price) {
+    if (price >= 1000) {
+        return price.toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+    } else if (price >= 1) {
+        return price.toFixed(2);
+    } else {
+        return price.toFixed(4);
+    }
+}
+
+function formatPercentage(value) {
+    if (value === null || value === undefined) return 'N/A';
+    const formatted = (value >= 0 ? '+' : '') + value.toFixed(2) + '%';
+    return `<span class="${value >= 0 ? 'text-success' : 'text-danger'}">${formatted}</span>`;
+}
+
+// Chart interaction variables
+let isDragging = false;
+let lastX = 0;
+let lastY = 0;
+let zoomLevel = 1;
+let panOffsetX = 0;
+let panOffsetY = 0;
+
+// Chart Tools Variables
+let priceChart = null;
+let drawingCanvas = null;
+let drawingContext = null;
+let isPanMode = false;
+let drawingMode = null;
+let isDrawing = false;
+let drawings = [];
+let startPoint = null;
+
+// Initialize drawing canvas
+function initializeDrawingCanvas() {
+    drawingCanvas = document.getElementById('drawing-canvas');
+    if (drawingCanvas) {
+        drawingContext = drawingCanvas.getContext('2d');
+        drawingCanvas.width = drawingCanvas.offsetWidth;
+        drawingCanvas.height = drawingCanvas.offsetHeight;
+        
+        // Add mouse event listeners for drawing
+        drawingCanvas.addEventListener('mousedown', startDrawing);
+        drawingCanvas.addEventListener('mousemove', draw);
+        drawingCanvas.addEventListener('mouseup', stopDrawing);
+        drawingCanvas.addEventListener('mouseout', stopDrawing);
+    }
+}
+
+// Add interactive functionality to chart
+function addChartInteractivity(canvas) {
+    // Mouse wheel zoom
+    canvas.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        const zoom = e.deltaY > 0 ? 0.9 : 1.1;
+        zoomLevel *= zoom;
+        
+        // Apply zoom to chart
+        if (priceChart) {
+            const xScale = priceChart.scales.x;
+            const yScale = priceChart.scales.y;
+            
+            const range = xScale.max - xScale.min;
+            const center = xScale.min + range / 2;
+            const newRange = range * (1 / zoom);
+            
+            xScale.options.min = center - newRange / 2;
+            xScale.options.max = center + newRange / 2;
+            
+            priceChart.update('none');
+        }
+        
+        console.log('Zoom applied:', zoomLevel);
+    });
+    
+    // Mouse drag pan
+    canvas.addEventListener('mousedown', function(e) {
+        if (isPanMode) {
+            isDragging = true;
+            lastX = e.clientX;
+            lastY = e.clientY;
+            canvas.style.cursor = 'grabbing';
+        }
+    });
+    
+    canvas.addEventListener('mousemove', function(e) {
+        if (isDragging && isPanMode && priceChart) {
+            const deltaX = e.clientX - lastX;
+            const deltaY = e.clientY - lastY;
+            
+            const xScale = priceChart.scales.x;
+            const range = xScale.max - xScale.min;
+            const panAmount = range * (deltaX / canvas.width) * 0.1;
+            
+            xScale.options.min -= panAmount;
+            xScale.options.max -= panAmount;
+            
+            priceChart.update('none');
+            
+            lastX = e.clientX;
+            lastY = e.clientY;
+        }
+    });
+    
+    canvas.addEventListener('mouseup', function(e) {
+        if (isDragging) {
+            isDragging = false;
+            canvas.style.cursor = isPanMode ? 'grab' : 'default';
+        }
+    });
+    
+    canvas.addEventListener('mouseleave', function(e) {
+        if (isDragging) {
+            isDragging = false;
+            canvas.style.cursor = 'default';
+        }
+    });
+}
+
+// Toggle pan mode
+function togglePanMode() {
+    const panBtn = document.getElementById('pan-tool');
+    isPanMode = !isPanMode;
+    
+    if (isPanMode) {
+        panBtn.classList.remove('btn-outline-primary');
+        panBtn.classList.add('btn-primary');
+        drawingMode = null;
+        updateDrawingButtons();
+        if (drawingCanvas) drawingCanvas.style.pointerEvents = 'none';
+        console.log('Pan mode enabled - click and drag to move chart');
+    } else {
+        panBtn.classList.remove('btn-primary');
+        panBtn.classList.add('btn-outline-primary');
+        console.log('Pan mode disabled');
+    }
+}
+
+// Reset zoom
+function resetZoom() {
+    if (priceChart) {
+        // Reset zoom and pan
+        zoomLevel = 1;
+        panOffsetX = 0;
+        panOffsetY = 0;
+        
+        // Reset scale options
+        priceChart.scales.x.options.min = undefined;
+        priceChart.scales.x.options.max = undefined;
+        priceChart.scales.y.options.min = undefined;
+        priceChart.scales.y.options.max = undefined;
+        
+        priceChart.update();
+        console.log('Chart zoom and pan reset');
+    }
+}
+
+// Toggle drawing mode
+function toggleDrawingMode(mode) {
+    const btn = document.getElementById(`draw-${mode}`);
+    
+    if (drawingMode === mode) {
+        drawingMode = null;
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-outline-primary');
+        if (drawingCanvas) drawingCanvas.style.pointerEvents = 'none';
+    } else {
+        drawingMode = mode;
+        isPanMode = false;
+        updateDrawingButtons();
+        btn.classList.remove('btn-outline-primary');
+        btn.classList.add('btn-primary');
+        if (drawingCanvas) drawingCanvas.style.pointerEvents = 'auto';
+        
+        // Disable pan mode
+        const panBtn = document.getElementById('pan-tool');
+        panBtn.classList.remove('btn-primary');
+        panBtn.classList.add('btn-outline-primary');
+        if (priceChart && priceChart.options.plugins.zoom) {
+            priceChart.options.plugins.zoom.pan.enabled = false;
+            priceChart.update('none');
+        }
+    }
+}
+
+function updateDrawingButtons() {
+    ['line', 'rectangle'].forEach(mode => {
+        const btn = document.getElementById(`draw-${mode}`);
+        if (drawingMode === mode) {
+            btn.classList.remove('btn-outline-primary');
+            btn.classList.add('btn-primary');
+        } else {
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-outline-primary');
+        }
+    });
+}
+
+// Drawing functions
+function startDrawing(event) {
+    if (!drawingMode) return;
+    
+    isDrawing = true;
+    const rect = drawingCanvas.getBoundingClientRect();
+    startPoint = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top
+    };
+}
+
+function draw(event) {
+    if (!isDrawing || !drawingMode || !startPoint) return;
+    
+    const rect = drawingCanvas.getBoundingClientRect();
+    const currentPoint = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top
+    };
+    
+    // Clear canvas and redraw all existing drawings
+    drawingContext.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+    redrawAllDrawings();
+    
+    // Draw current shape being created
+    drawingContext.strokeStyle = '#00d4ff';
+    drawingContext.lineWidth = 2;
+    drawingContext.beginPath();
+    
+    if (drawingMode === 'line') {
+        drawingContext.moveTo(startPoint.x, startPoint.y);
+        drawingContext.lineTo(currentPoint.x, currentPoint.y);
+    } else if (drawingMode === 'rectangle') {
+        const width = currentPoint.x - startPoint.x;
+        const height = currentPoint.y - startPoint.y;
+        drawingContext.rect(startPoint.x, startPoint.y, width, height);
+    }
+    
+    drawingContext.stroke();
+}
+
+function stopDrawing(event) {
+    if (!isDrawing || !drawingMode || !startPoint) return;
+    
+    isDrawing = false;
+    const rect = drawingCanvas.getBoundingClientRect();
+    const endPoint = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top
+    };
+    
+    // Save the drawing
+    const drawing = {
+        type: drawingMode,
+        start: startPoint,
+        end: endPoint,
+        color: '#00d4ff'
+    };
+    
+    drawings.push(drawing);
+    startPoint = null;
+}
+
+function redrawAllDrawings() {
+    drawings.forEach(drawing => {
+        drawingContext.strokeStyle = drawing.color;
+        drawingContext.lineWidth = 2;
+        drawingContext.beginPath();
+        
+        if (drawing.type === 'line') {
+            drawingContext.moveTo(drawing.start.x, drawing.start.y);
+            drawingContext.lineTo(drawing.end.x, drawing.end.y);
+        } else if (drawing.type === 'rectangle') {
+            const width = drawing.end.x - drawing.start.x;
+            const height = drawing.end.y - drawing.start.y;
+            drawingContext.rect(drawing.start.x, drawing.start.y, width, height);
+        }
+        
+        drawingContext.stroke();
+    });
+}
+
+function clearDrawings() {
+    drawings = [];
+    if (drawingContext) {
+        drawingContext.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+    }
+}
+
+// Update the createPriceChart function to initialize drawing canvas
+function createPriceChart(priceData) {
+    const ctx = document.getElementById('price-chart');
+    if (!ctx) {
+        console.log('Price chart canvas not found');
+        return;
+    }
+    
+    const context = ctx.getContext('2d');
+    
+    if (currentChart) {
+        currentChart.destroy();
+    }
+    
+    console.log('Creating chart with data: 5 points');
+    
+    const labels = ['6h ago', '4h ago', '2h ago', '1h ago', 'Now'];
+    const prices = [100, 102, 98, 105, 103];
+    
+    console.log('Chart labels sample:', labels.slice(0, 3));
+    console.log('Chart prices sample:', prices.slice(0, 3));
+    
+    currentChart = new Chart(context, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: selectedTokenSymbol || 'Price',
+                data: prices,
+                borderColor: '#00d4ff',
+                backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                tension: 0.1,
+                fill: true,
+                pointRadius: 1,
+                pointHoverRadius: 4,
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    ticks: {
+                        color: '#8b949e'
+                    }
+                },
+                y: {
+                    beginAtZero: false,
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    ticks: {
+                        color: '#8b949e',
+                        callback: function(value) {
+                            return '$' + value.toFixed(2);
+                        }
+                    }
+                }
+            },
+            onHover: (event, activeElements) => {
+                if (isPanMode) {
+                    event.native.target.style.cursor = 'grab';
+                } else if (drawingMode) {
+                    event.native.target.style.cursor = 'crosshair';
+                } else {
+                    event.native.target.style.cursor = 'default';
+                }
+            }
+        }
+    });
+    
+    console.log('Chart created successfully');
+    
+    // Add interactive functionality
+    try {
+        addChartInteractivity(ctx);
+        
+        // Initialize drawing canvas after chart is created
+        setTimeout(() => {
+            initializeDrawingCanvas();
+            console.log('Interactive chart tools initialized');
+        }, 100);
+    } catch (error) {
+        console.log('Chart interactivity setup skipped:', error.message);
+    }
+}
+
+// Duplicate function removed - using loadAvailableTokens() above
+
+// Select a token from the dropdown
+function selectToken(symbol, name) {
+    selectedTokenSymbol = symbol;
+    const selectedText = document.getElementById('selected-token-text');
+    if (selectedText) {
+        selectedText.textContent = `${symbol} - ${name}`;
+    }
+    
+    // Trigger analysis for the selected token
+    loadTokenAnalysis();
+}
+
+// Filter tokens in dropdown
+function filterTokens() {
+    const searchInput = document.getElementById('token-search');
+    const tokenItems = document.querySelectorAll('.token-item');
+    
+    if (searchInput && tokenItems) {
+        const searchTerm = searchInput.value.toLowerCase();
+        
+        tokenItems.forEach(item => {
+            const symbol = item.dataset.symbol.toLowerCase();
+            const text = item.textContent.toLowerCase();
+            
+            if (symbol.includes(searchTerm) || text.includes(searchTerm)) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+}
+
+// Page initialization handled by loadAvailableTokens() above
+</script>
+{% endblock %}

@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+{% block title %}API Setup - Trading Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">API Configuration</h2>
+            
+            <!-- API Status Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Market Data API Status</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center mb-3">
+                                <span class="badge bg-danger me-2">Offline</span>
+                                <strong>CoinAPI</strong>
+                                <small class="text-muted ms-2">(Comprehensive market data)</small>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-warning me-2">Setup Required</span>
+                                <strong>Bybit API</strong>
+                                <small class="text-muted ms-2">(Direct exchange data)</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="alert alert-warning mb-0">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>Authentication Required</strong><br>
+                                Real market data access requires API credentials for live trading.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bybit Setup Instructions -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-line me-2"></i>
+                        Bybit API Setup (Recommended)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h6>Step-by-Step Setup:</h6>
+                            <ol>
+                                <li><strong>Log into Bybit:</strong> Go to <a href="https://www.bybit.com/" target="_blank">bybit.com</a></li>
+                                <li><strong>Navigate to API:</strong> Account & Security → API Management</li>
+                                <li><strong>Create New Key:</strong> Click "Create New Key"</li>
+                                <li><strong>Configure Permissions:</strong>
+                                    <ul>
+                                        <li>✅ <strong>Read-Only</strong> (select this)</li>
+                                        <li>✅ <strong>Orders</strong> (query order info)</li>
+                                        <li>✅ <strong>Positions</strong> (query positions)</li>
+                                        <li>✅ <strong>USDC Derivatives Trading</strong></li>
+                                    </ul>
+                                </li>
+                                <li><strong>Application Name:</strong> Enter "Trading Dashboard"</li>
+                                <li><strong>Copy Keys:</strong> Save both API Key and Secret Key</li>
+                            </ol>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">Benefits:</h6>
+                                    <ul class="list-unstyled mb-0">
+                                        <li>✅ Real-time prices</li>
+                                        <li>✅ Direct exchange data</li>
+                                        <li>✅ No rate limits</li>
+                                        <li>✅ Free to use</li>
+                                        <li>✅ Read-only access</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- API Key Input Form -->
+                    <div class="mt-4">
+                        <h6>Enter Your Bybit API Credentials:</h6>
+                        <form id="bybitApiForm">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="bybitApiKey" class="form-label">
+                                            <i class="fas fa-key me-1"></i>
+                                            Bybit API Key
+                                        </label>
+                                        <input type="password" class="form-control" id="bybitApiKey" 
+                                               placeholder="Enter your Bybit API key">
+                                        <div class="form-text">Read-only API key from Bybit</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="bybitSecret" class="form-label">
+                                            <i class="fas fa-lock me-1"></i>
+                                            Bybit Secret Key
+                                        </label>
+                                        <input type="password" class="form-control" id="bybitSecret" 
+                                               placeholder="Enter your Bybit secret key">
+                                        <div class="form-text">Secret key for authentication</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>
+                                Save API Configuration
+                            </button>
+                            <button type="button" class="btn btn-secondary ms-2" onclick="testConnection()">
+                                <i class="fas fa-check-circle me-2"></i>
+                                Test Connection
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alternative: CoinAPI Setup -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-coins me-2"></i>
+                        Alternative: CoinAPI Setup
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <p>If you prefer comprehensive market data from multiple exchanges:</p>
+                            <ol>
+                                <li>Go to <a href="https://www.coinapi.io/" target="_blank">coinapi.io</a></li>
+                                <li>Sign up for a free account</li>
+                                <li>Get your API key from the dashboard</li>
+                                <li>Choose a subscription plan for live data</li>
+                            </ol>
+                            <div class="mb-3">
+                                <label for="coinapiKey" class="form-label">CoinAPI Key</label>
+                                <input type="password" class="form-control" id="coinapiKey" 
+                                       placeholder="Enter your CoinAPI key">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="alert alert-info">
+                                <strong>Note:</strong> CoinAPI requires a paid subscription for real-time data access.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('bybitApiForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const apiKey = document.getElementById('bybitApiKey').value;
+    const secretKey = document.getElementById('bybitSecret').value;
+    
+    if (!apiKey || !secretKey) {
+        alert('Please enter both API key and secret key');
+        return;
+    }
+    
+    // Send to backend
+    fetch('/api/config/bybit', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            api_key: apiKey,
+            secret_key: secretKey
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Bybit API configured successfully! Redirecting to dashboard...');
+            window.location.href = '/';
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to save configuration');
+    });
+});
+
+function testConnection() {
+    const apiKey = document.getElementById('bybitApiKey').value;
+    const secretKey = document.getElementById('bybitSecret').value;
+    
+    if (!apiKey || !secretKey) {
+        alert('Please enter API credentials first');
+        return;
+    }
+    
+    fetch('/api/test-connection', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            api_key: apiKey,
+            secret_key: secretKey
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Connection successful! API is working correctly.');
+        } else {
+            alert('❌ Connection failed: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Connection test failed');
+    });
+}
+</script>
+{% endblock %}

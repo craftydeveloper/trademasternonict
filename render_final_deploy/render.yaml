@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: tradepro-bot
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tradepro-db
+          property: connectionString
+
+databases:
+  - name: tradepro-db
+    databaseName: tradepro
+    user: tradepro

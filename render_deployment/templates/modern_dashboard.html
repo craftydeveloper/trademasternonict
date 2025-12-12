@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradePro - Professional Futures Trading Platform</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-bg: #0a0e14;
+            --secondary-bg: #1a1f26;
+            --card-bg: rgba(26, 31, 38, 0.95);
+            --border-color: #2d3748;
+            --accent-blue: #00d4ff;
+            --accent-green: #00ff88;
+            --accent-red: #ff4757;
+            --accent-orange: #ff9f43;
+            --text-primary: #ffffff;
+            --text-secondary: #a0aec0;
+            --text-muted: #718096;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            --shadow-hover: 0 8px 40px rgba(0, 212, 255, 0.15);
+            --gradient-primary: linear-gradient(135deg, #00d4ff 0%, #00ff88 100%);
+            --gradient-card: linear-gradient(135deg, rgba(26, 31, 38, 0.95) 0%, rgba(45, 55, 72, 0.95) 100%);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, var(--primary-bg) 0%, #0f1419 50%, #1a1f26 100%);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated Background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 20% 20%, rgba(0, 212, 255, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 80%, rgba(0, 255, 136, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 40% 40%, rgba(255, 71, 87, 0.05) 0%, transparent 50%);
+            z-index: -1;
+            animation: backgroundShift 20s ease-in-out infinite;
+        }
+
+        @keyframes backgroundShift {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        /* Navigation */
+        .navbar {
+            background: rgba(26, 31, 38, 0.98);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .navbar-brand {
+            font-weight: 800;
+            font-size: 1.4rem;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-decoration: none;
+        }
+
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 70px;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 30px;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            color: var(--accent-blue);
+            background: rgba(0, 212, 255, 0.1);
+            text-decoration: none;
+        }
+
+        .nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 4px;
+            background: var(--accent-blue);
+            border-radius: 50%;
+        }
+
+        /* Main Container */
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+
+        /* Header Section */
+        .dashboard-header {
+            background: var(--gradient-card);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dashboard-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient-primary);
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .header-subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            background: rgba(0, 255, 136, 0.1);
+            padding: 12px 20px;
+            border-radius: 50px;
+            border: 1px solid var(--accent-green);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            margin-right: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.2); }
+        }
+
+        /* Metrics Grid */
+        .metrics-section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+
+        .section-title i {
+            margin-right: 10px;
+            color: var(--accent-blue);
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .metric-card {
+            background: var(--gradient-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--gradient-primary);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-hover);
+            border-color: var(--accent-blue);
+        }
+
+        .metric-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .metric-icon {
+            font-size: 2rem;
+            margin-bottom: 15px;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin-bottom: 5px;
+        }
+
+        .metric-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .metric-change {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+
+        /* Trading Signals */
+        .signals-section {
+            margin-bottom: 30px;
+        }
+
+        .signals-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 20px;
+        }
+
+        .signal-card {
+            background: var(--gradient-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 25px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .signal-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-hover);
+            border-color: var(--accent-blue);
+        }
+
+        .signal-card.primary {
+            border: 2px solid var(--accent-green);
+            background: linear-gradient(135deg, rgba(0, 255, 136, 0.05) 0%, rgba(26, 31, 38, 0.95) 100%);
+        }
+
+        .signal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .signal-symbol {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .signal-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-buy {
+            background: rgba(0, 255, 136, 0.2);
+            color: var(--accent-green);
+            border: 1px solid var(--accent-green);
+        }
+
+        .badge-sell {
+            background: rgba(255, 71, 87, 0.2);
+            color: var(--accent-red);
+            border: 1px solid var(--accent-red);
+        }
+
+        .signal-price {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--accent-blue);
+            margin: 10px 0;
+        }
+
+        .confidence-container {
+            margin: 15px 0;
+        }
+
+        .confidence-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .confidence-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(45, 55, 72, 0.5);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: all 0.8s ease;
+        }
+
+        .confidence-high { background: linear-gradient(90deg, var(--accent-green), #00ff88); }
+        .confidence-medium { background: linear-gradient(90deg, var(--accent-orange), #ffa502); }
+        .confidence-low { background: linear-gradient(90deg, var(--accent-red), #ff6b6b); }
+
+        .signal-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .detail-item {
+            text-align: center;
+        }
+
+        .detail-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .detail-value {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .signal-actions {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Buttons */
+        .btn-modern {
+            background: var(--gradient-primary);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-modern::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn-modern:hover::before {
+            left: 100%;
+        }
+
+        .btn-modern:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.4);
+            color: white;
+            text-decoration: none;
+        }
+
+        .btn-modern i {
+            margin-right: 8px;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--accent-blue);
+            color: var(--accent-blue);
+        }
+
+        .btn-outline:hover {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        /* Portfolio Section */
+        .portfolio-section {
+            margin-bottom: 30px;
+        }
+
+        .portfolio-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+
+        .portfolio-chart {
+            background: var(--gradient-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 25px;
+            height: 400px;
+        }
+
+        .portfolio-summary {
+            background: var(--gradient-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 25px;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .summary-item:last-child {
+            border-bottom: none;
+        }
+
+        .summary-label {
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .summary-value {
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .main-container {
+                padding: 20px 15px;
+            }
+
+            .header-content {
+                flex-direction: column;
+                text-align: center;
+                gap: 20px;
+            }
+
+            .header-title {
+                font-size: 2rem;
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .signals-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .portfolio-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-links {
+                display: none;
+            }
+        }
+
+        /* Loading States */
+        .loading-card {
+            background: var(--gradient-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(0, 212, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--accent-blue);
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Utility Classes */
+        .text-success { color: var(--accent-green) !important; }
+        .text-danger { color: var(--accent-red) !important; }
+        .text-warning { color: var(--accent-orange) !important; }
+        .text-info { color: var(--accent-blue) !important; }
+
+        .fade-in {
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="navbar-brand">
+                <i class="fas fa-chart-line"></i> TradePro
+            </a>
+            <ul class="nav-links">
+                <li><a href="/" class="nav-link active">Dashboard</a></li>
+                <li><a href="/portfolio" class="nav-link">Portfolio</a></li>
+                <li><a href="/old-dashboard" class="nav-link">Analysis</a></li>
+                <li><a href="/reports" class="nav-link">Reports</a></li>
+                <li><a href="/old-dashboard" class="nav-link">Settings</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="main-container">
+        <!-- Dashboard Header -->
+        <div class="dashboard-header fade-in">
+            <div class="header-content">
+                <div>
+                    <h1 class="header-title">Trading Dashboard</h1>
+                    <p class="header-subtitle">
+                        <i class="fas fa-chart-trending-up"></i>
+                        Real-time futures trading with AI-powered signals
+                    </p>
+                </div>
+                <div class="status-indicator">
+                    <div class="status-dot"></div>
+                    <span>Live Trading Active</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Portfolio Metrics -->
+        <div class="metrics-section">
+            <h2 class="section-title">
+                <i class="fas fa-wallet"></i>
+                Portfolio Overview
+            </h2>
+            <div class="metrics-grid" id="metrics-grid">
+                <!-- Metrics will be loaded here -->
+                <div class="loading-card">
+                    <div class="loading-spinner"></div>
+                    <p>Loading portfolio metrics...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trading Signals -->
+        <div class="signals-section">
+            <h2 class="section-title">
+                <i class="fas fa-signal"></i>
+                Active Trading Signals
+            </h2>
+            <div class="signals-grid" id="signals-grid">
+                <!-- Signals will be loaded here -->
+                <div class="loading-card">
+                    <div class="loading-spinner"></div>
+                    <p>Loading trading signals...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Portfolio Performance -->
+        <div class="portfolio-section">
+            <h2 class="section-title">
+                <i class="fas fa-chart-area"></i>
+                Performance Analytics
+            </h2>
+            <div class="portfolio-grid">
+                <div class="portfolio-chart">
+                    <canvas id="portfolioChart"></canvas>
+                </div>
+                <div class="portfolio-summary" id="portfolio-summary">
+                    <!-- Summary will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        class ModernTradingDashboard {
+            constructor() {
+                console.log('Dashboard constructor started');
+                this.init();
+            }
+
+            init() {
+                console.log('Dashboard initialization started');
+                this.setupEventListeners();
+                this.initializeChart();
+                this.loadData();
+                this.startAutoRefresh();
+            }
+
+            setupEventListeners() {
+                document.addEventListener('click', this.handleClick.bind(this));
+            }
+
+            handleClick(event) {
+                if (event.target.closest('.signal-card')) {
+                    this.selectSignal(event.target.closest('.signal-card'));
+                }
+            }
+
+            selectSignal(signalCard) {
+                document.querySelectorAll('.signal-card').forEach(card => {
+                    card.classList.remove('selected');
+                });
+                signalCard.classList.add('selected');
+            }
+
+            async loadData() {
+                console.log('Loading dashboard data...');
+                this.loadMetrics();
+                this.loadSignals();
+                this.loadPortfolioSummary();
+            }
+
+            async loadMetrics() {
+                try {
+                    const response = await fetch('/api/portfolio-summary');
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    const data = await response.json();
+                    this.renderMetrics(data);
+                } catch (error) {
+                    console.error('Error loading metrics:', error);
+                    this.renderMetricsError();
+                }
+            }
+
+            async loadSignals() {
+                try {
+                    const response = await fetch('/api/trading-signals');
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    const data = await response.json();
+                    if (data.success) {
+                        this.renderSignals(data.signals || []);
+                    } else {
+                        throw new Error(data.error || 'Unknown error');
+                    }
+                } catch (error) {
+                    console.error('Error loading signals:', error);
+                    this.renderSignalsError();
+                }
+            }
+
+            async loadPortfolioSummary() {
+                try {
+                    const response = await fetch('/api/portfolio-summary');
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    const data = await response.json();
+                    if (data.success) {
+                        this.renderPortfolioSummary(data);
+                    } else {
+                        throw new Error(data.error || 'Unknown error');
+                    }
+                } catch (error) {
+                    console.error('Error loading portfolio summary:', error);
+                    this.renderPortfolioSummaryError();
+                }
+            }
+
+            renderPortfolioSummaryError() {
+                const summaryContainer = document.getElementById('portfolio-summary');
+                if (summaryContainer) {
+                    summaryContainer.innerHTML = `
+                        <div style="text-align: center; padding: 20px; color: var(--text-muted);">
+                            <i class="fas fa-exclamation-triangle" style="font-size: 2rem; color: var(--accent-red); margin-bottom: 10px;"></i>
+                            <p>Unable to load portfolio summary</p>
+                        </div>
+                    `;
+                }
+            }
+
+            renderMetricsError() {
+                const metricsGrid = document.getElementById('metrics-grid');
+                metricsGrid.innerHTML = `
+                    <div class="loading-card">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: var(--accent-red); margin-bottom: 1rem;"></i>
+                        <p>Unable to load portfolio metrics</p>
+                        <button class="btn-modern" onclick="location.reload()">Retry</button>
+                    </div>
+                `;
+            }
+
+            renderMetrics(data) {
+                const metricsGrid = document.getElementById('metrics-grid');
+                
+                const metrics = [
+                    {
+                        icon: 'fas fa-dollar-sign',
+                        value: `$${data.total_balance?.toFixed(2) || '0.00'}`,
+                        label: 'Total Balance',
+                        change: data.total_pnl >= 0 ? `+$${data.total_pnl?.toFixed(2) || '0.00'}` : `-$${Math.abs(data.total_pnl || 0).toFixed(2)}`,
+                        changeClass: data.total_pnl >= 0 ? 'text-success' : 'text-danger'
+                    },
+                    {
+                        icon: 'fas fa-chart-line',
+                        value: `${data.total_pnl_percentage?.toFixed(2) || '0.00'}%`,
+                        label: 'Total Return',
+                        change: data.total_pnl >= 0 ? 'Profit' : 'Loss',
+                        changeClass: data.total_pnl >= 0 ? 'text-success' : 'text-danger'
+                    },
+                    {
+                        icon: 'fas fa-exchange-alt',
+                        value: data.total_trades || '0',
+                        label: 'Total Trades',
+                        change: `${data.winning_trades || '0'} wins`,
+                        changeClass: 'text-info'
+                    },
+                    {
+                        icon: 'fas fa-percentage',
+                        value: `${data.win_rate?.toFixed(1) || '0.0'}%`,
+                        label: 'Win Rate',
+                        change: data.win_rate >= 50 ? 'Excellent' : 'Improving',
+                        changeClass: data.win_rate >= 50 ? 'text-success' : 'text-warning'
+                    }
+                ];
+
+                metricsGrid.innerHTML = metrics.map(metric => `
+                    <div class="metric-card fade-in">
+                        <i class="${metric.icon} metric-icon"></i>
+                        <div class="metric-value">${metric.value}</div>
+                        <div class="metric-label">${metric.label}</div>
+                        <div class="metric-change ${metric.changeClass}">${metric.change}</div>
+                    </div>
+                `).join('');
+            }
+
+            renderSignalsError() {
+                const signalsGrid = document.getElementById('signals-grid');
+                signalsGrid.innerHTML = `
+                    <div class="loading-card">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: var(--accent-red); margin-bottom: 1rem;"></i>
+                        <p>Unable to load trading signals</p>
+                        <button class="btn-modern" onclick="location.reload()">Retry</button>
+                    </div>
+                `;
+            }
+
+            renderSignals(signals) {
+                const signalsGrid = document.getElementById('signals-grid');
+                
+                if (!signals || signals.length === 0) {
+                    signalsGrid.innerHTML = `
+                        <div class="loading-card">
+                            <i class="fas fa-chart-line" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+                            <p>No active signals available</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                signalsGrid.innerHTML = signals.map((signal, index) => {
+                    const confidenceClass = signal.confidence >= 80 ? 'confidence-high' : 
+                                          signal.confidence >= 60 ? 'confidence-medium' : 'confidence-low';
+                    
+                    const badgeClass = signal.action === 'BUY' ? 'badge-buy' : 'badge-sell';
+                    
+                    return `
+                        <div class="signal-card ${index === 0 ? 'primary' : ''} fade-in" style="animation-delay: ${index * 0.1}s">
+                            <div class="signal-header">
+                                <div class="signal-symbol">${signal.symbol}</div>
+                                <div class="signal-badge ${badgeClass}">${signal.action}</div>
+                            </div>
+                            
+                            <div class="signal-price">$${signal.entry_price?.toFixed(6) || '0.000000'}</div>
+                            
+                            <div class="confidence-container">
+                                <div class="confidence-label">
+                                    <span>Confidence</span>
+                                    <span>${signal.confidence?.toFixed(1) || '0.0'}%</span>
+                                </div>
+                                <div class="confidence-bar">
+                                    <div class="confidence-fill ${confidenceClass}" style="width: ${signal.confidence || 0}%"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="signal-details">
+                                <div class="detail-item">
+                                    <div class="detail-label">Stop Loss</div>
+                                    <div class="detail-value">$${signal.stop_loss?.toFixed(6) || '0.000000'}</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Take Profit</div>
+                                    <div class="detail-value">$${signal.take_profit?.toFixed(6) || '0.000000'}</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Leverage</div>
+                                    <div class="detail-value">${signal.leverage || '1'}x</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Risk/Reward</div>
+                                    <div class="detail-value">1:${signal.risk_reward_ratio?.toFixed(1) || '1.0'}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="signal-actions">
+                                <button class="btn-modern" onclick="window.open('https://www.bybit.com/trade/usdt/${signal.symbol}USDT', '_blank')">
+                                    <i class="fas fa-external-link-alt"></i>
+                                    Trade on Bybit
+                                </button>
+                                <button class="btn-modern btn-outline" onclick="copyBybitSettings('${signal.symbol}')">
+                                    <i class="fas fa-copy"></i>
+                                    Copy Settings
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            renderPortfolioSummary(data) {
+                const summaryContainer = document.getElementById('portfolio-summary');
+                
+                const summaryItems = [
+                    { label: 'Account Balance', value: `$${data.total_balance?.toFixed(2) || '0.00'}` },
+                    { label: 'Unrealized P&L', value: `$${data.unrealized_pnl?.toFixed(2) || '0.00'}`, class: data.unrealized_pnl >= 0 ? 'text-success' : 'text-danger' },
+                    { label: 'Realized P&L', value: `$${data.realized_pnl?.toFixed(2) || '0.00'}`, class: data.realized_pnl >= 0 ? 'text-success' : 'text-danger' },
+                    { label: 'Active Positions', value: data.active_positions || '0' },
+                    { label: 'Total Trades', value: data.total_trades || '0' },
+                    { label: 'Win Rate', value: `${data.win_rate?.toFixed(1) || '0.0'}%` }
+                ];
+
+                summaryContainer.innerHTML = summaryItems.map(item => `
+                    <div class="summary-item">
+                        <span class="summary-label">${item.label}</span>
+                        <span class="summary-value ${item.class || ''}">${item.value}</span>
+                    </div>
+                `).join('');
+            }
+
+            initializeChart() {
+                const ctx = document.getElementById('portfolioChart').getContext('2d');
+                
+                this.chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Portfolio Value',
+                            data: [],
+                            borderColor: '#00d4ff',
+                            backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            x: {
+                                display: true,
+                                grid: {
+                                    color: 'rgba(45, 55, 72, 0.5)'
+                                },
+                                ticks: {
+                                    color: '#a0aec0'
+                                }
+                            },
+                            y: {
+                                display: true,
+                                grid: {
+                                    color: 'rgba(45, 55, 72, 0.5)'
+                                },
+                                ticks: {
+                                    color: '#a0aec0'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            startAutoRefresh() {
+                setInterval(() => {
+                    this.loadData();
+                }, 30000); // Refresh every 30 seconds
+            }
+
+            showError(message) {
+                console.error(message);
+                // Could implement toast notifications here
+            }
+        }
+
+        // Global functions
+        function copyBybitSettings(symbol) {
+            // Implementation for copying Bybit settings
+            navigator.clipboard.writeText(`Symbol: ${symbol}`).then(() => {
+                console.log('Settings copied to clipboard');
+            });
+        }
+
+        // Initialize dashboard when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Initializing TradePro Dashboard...');
+            try {
+                new ModernTradingDashboard();
+            } catch (error) {
+                console.error('Failed to initialize dashboard:', error);
+                // Show fallback content
+                document.body.innerHTML += `
+                    <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white; z-index: 9999;">
+                        <h2>Loading TradePro...</h2>
+                        <p>Initializing professional trading interface</p>
+                    </div>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>

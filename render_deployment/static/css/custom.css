@@ -1,0 +1,328 @@
+/* Custom CSS for Solana Trading Bot */
+/* Minimal overrides to complement Bootstrap dark theme */
+
+/* Ensure body takes full height */
+html, body {
+    height: 100%;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Card enhancements */
+.card {
+    border: 1px solid var(--bs-border-color);
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+/* Trading form enhancements */
+#trading-form .btn-check:checked + .btn {
+    box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+/* Chart container */
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+}
+
+#price-chart, #portfolio-chart {
+    max-height: 300px;
+}
+
+/* Order book styling */
+#bids-data .d-flex,
+#asks-data .d-flex {
+    padding: 0.25rem 0;
+    border-bottom: 1px solid var(--bs-border-color);
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+}
+
+#bids-data .d-flex:last-child,
+#asks-data .d-flex:last-child {
+    border-bottom: none;
+}
+
+/* Market data table enhancements */
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: var(--bs-secondary);
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.table tbody tr:hover {
+    background-color: var(--bs-gray-800);
+}
+
+/* Position and trade status indicators */
+.badge {
+    font-size: 0.75em;
+    font-weight: 500;
+}
+
+/* Notification positioning */
+.alert.position-fixed {
+    max-width: 400px;
+    z-index: 1050;
+}
+
+/* Loading states */
+.btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+/* Connection status indicator */
+#connection-status {
+    animation: none;
+}
+
+#connection-status.bg-success {
+    animation: pulse-success 2s infinite;
+}
+
+@keyframes pulse-success {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+/* Form validation states */
+.was-validated .form-control:valid {
+    border-color: var(--bs-success);
+    padding-right: calc(1.5em + 0.75rem);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='m2.3 6.73 3.53-4.71a.75.75 0 1 1 1.2.9L3.7 7.21a.75.75 0 0 1-1.1.09L1.1 5.8a.75.75 0 1 1 1.2-.9l.3.31.7-.97z'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+.was-validated .form-control:invalid {
+    border-color: var(--bs-danger);
+    padding-right: calc(1.5em + 0.75rem);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+/* Portfolio stats cards */
+.card.text-center .card-body {
+    padding: 1.5rem;
+}
+
+.card.text-center h3 {
+    font-weight: 700;
+    margin-bottom: 0;
+}
+
+.card.text-center h6 {
+    color: var(--bs-secondary);
+    font-weight: 500;
+    margin-bottom: 0.75rem;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    .btn-group-sm > .btn,
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    #price-chart, #portfolio-chart {
+        max-height: 250px;
+    }
+}
+
+/* Risk warning alert styling */
+.alert-warning {
+    border-left: 4px solid var(--bs-warning);
+}
+
+/* Custom scrollbar for tables */
+.table-responsive::-webkit-scrollbar {
+    height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: var(--bs-gray-800);
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: var(--bs-gray-600);
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: var(--bs-gray-500);
+}
+
+/* Footer styling */
+footer {
+    margin-top: auto;
+}
+
+footer a {
+    color: var(--bs-primary);
+    text-decoration: none;
+}
+
+footer a:hover {
+    color: var(--bs-primary);
+    text-decoration: underline;
+}
+
+/* Modal improvements */
+.modal-content {
+    border: 1px solid var(--bs-border-color);
+}
+
+.modal-header {
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.modal-footer {
+    border-top: 1px solid var(--bs-border-color);
+}
+
+/* Price change animations */
+.price-up {
+    animation: flash-green 0.5s ease-in-out;
+}
+
+.price-down {
+    animation: flash-red 0.5s ease-in-out;
+}
+
+@keyframes flash-green {
+    0% { background-color: transparent; }
+    50% { background-color: rgba(25, 135, 84, 0.2); }
+    100% { background-color: transparent; }
+}
+
+@keyframes flash-red {
+    0% { background-color: transparent; }
+    50% { background-color: rgba(220, 53, 69, 0.2); }
+    100% { background-color: transparent; }
+}
+
+/* Navigation improvements */
+.navbar-nav .nav-link {
+    transition: color 0.15s ease-in-out;
+    padding: 0.5rem 1rem;
+}
+
+.navbar-nav .nav-link:hover {
+    color: var(--bs-primary) !important;
+}
+
+.navbar-brand {
+    font-weight: 600;
+}
+
+/* Button group improvements */
+.btn-group .btn {
+    border-color: var(--bs-border-color);
+}
+
+.btn-group .btn:not(:first-child) {
+    border-left: none;
+}
+
+/* Form enhancements */
+.form-label {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.form-text {
+    color: var(--bs-secondary);
+    font-size: 0.875rem;
+}
+
+/* Empty state styling */
+.text-center.text-muted.py-4 {
+    padding: 3rem 1rem !important;
+}
+
+.text-center.text-muted.py-4 i {
+    color: var(--bs-gray-500);
+    margin-bottom: 1rem;
+}
+
+/* Trading panel specific styles */
+#position-size-result {
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Chart.js tooltip improvements */
+.chartjs-tooltip {
+    opacity: 1;
+    position: absolute;
+    background: var(--bs-dark);
+    color: var(--bs-light);
+    border-radius: var(--bs-border-radius);
+    border: 1px solid var(--bs-border-color);
+    padding: 0.5rem;
+    pointer-events: none;
+    transform: translate(-50%, 0);
+    transition: all 0.1s ease;
+}
+
+/* Ensure proper spacing for container elements */
+main.flex-grow-1 {
+    flex: 1 0 auto;
+}
+
+/* Performance optimizations */
+.card,
+.btn,
+.form-control,
+.form-select {
+    will-change: auto;
+}
+
+/* Print styles */
+@media print {
+    .navbar,
+    .alert,
+    footer,
+    .btn,
+    .modal {
+        display: none !important;
+    }
+    
+    .card {
+        border: 1px solid #000 !important;
+        box-shadow: none !important;
+    }
+    
+    .table th,
+    .table td {
+        border: 1px solid #000 !important;
+    }
+}
