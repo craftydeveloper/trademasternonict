@@ -900,8 +900,8 @@
                     const tradeStatus = signal.can_trade === false ? '<span class="text-warning">⏳ ' + (signal.trade_status || 'Active trade') + '</span>' : '<span class="text-success">✅ Ready to trade</span>';
                     html += '<small class="text-muted-clean">' + tradeStatus + ' | Qty: ' + (signal.bybit_settings ? signal.bybit_settings.qty : 'N/A') + '</small>';
                     const btnDisabled = signal.can_trade === false ? 'disabled' : '';
-                    html += '<button class="btn btn-success-clean" onclick="dashboard.executeTradeAction(\'' + symbolName + '\', \'' + signal.action + '\')" ' + btnDisabled + '>';
-                    html += '<i class="fas fa-rocket me-1"></i>Execute Trade';
+                    html += '<button class="btn btn-info-clean" onclick="dashboard.viewSetup(\'' + symbolName + '\')">';
+                    html += '<i class="fas fa-eye me-1"></i>View Setup';
                     html += '</button>';
                     html += '</div>';
                     html += '</div>';
@@ -1007,7 +1007,7 @@
                     html += '<div class="d-flex justify-content-between align-items-center">';
                     const tradeStatus = signal.can_trade === false ? '⏳ Active' : '✅ Ready';
                     html += '<small class="text-muted-clean">' + tradeStatus + ' | Qty: ' + (signal.bybit_settings ? signal.bybit_settings.qty : 'N/A') + '</small>';
-                    html += '<button class="btn btn-info-clean" onclick="dashboard.executeTradeAction(\'' + symbolName + '\', \'' + signal.action + '\')">';
+                    html += '<button class="btn btn-info-clean" onclick="dashboard.viewSetup(\'' + symbolName + '\')">';
                     html += '<i class="fas fa-eye me-1"></i>View Setup';
                     html += '</button>';
                     html += '</div>';
@@ -1289,8 +1289,8 @@
                 }
             }
 
-            async executeTradeAction(symbol, action) {
-                // Find the signal data for this symbol (case-insensitive search)
+            async viewSetup(symbol) {
+                // Find the signal data for this symbol
                 const signals = this.lastSignalData || [];
                 let signal = signals.find(s => s.symbol.toUpperCase() === symbol.toUpperCase());
                 
@@ -1310,38 +1310,10 @@
                 }
                 
                 if (signal && signal.bybit_settings) {
-                    // Check if trade can be executed
-                    if (signal.can_trade === false) {
-                        showToast(`Cannot execute: ${signal.trade_status}`, 'warning');
-                        return;
-                    }
-                    
-                    // Register the trade to prevent duplicate signals
-                    try {
-                        const entryPrice = parseFloat(signal.bybit_settings.entryPrice || signal.entry_price);
-                        const response = await fetch('/api/register-trade', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                symbol: symbol.toUpperCase(),
-                                action: action,
-                                entry_price: entryPrice,
-                                stop_loss: parseFloat(signal.bybit_settings.stopLoss),
-                                take_profit: parseFloat(signal.bybit_settings.takeProfit)
-                            })
-                        });
-                        const result = await response.json();
-                        if (result.success) {
-                            console.log(`Trade registered for ${symbol}`);
-                        }
-                    } catch (e) {
-                        console.error('Error registering trade:', e);
-                    }
-                    
-                    // Show detailed Bybit settings modal
+                    // Simply show the setup modal - no trade registration
                     this.showBybitSettings(symbol, signal.bybit_settings);
                 } else {
-                    // Fallback: fetch analysis for this specific token and create settings
+                    // Fallback: fetch analysis for this specific token
                     console.log(`No signal found for ${symbol}, fetching analysis...`);
                     try {
                         const response = await fetch(`/api/analysis/${symbol.toUpperCase()}`);
@@ -1353,7 +1325,7 @@
                     } catch (e) {
                         console.error('Error fetching analysis:', e);
                     }
-                    showToast(`${action} signal for ${symbol} noted. Please execute manually on Bybit.`, 'info');
+                    showToast(`Setup not available for ${symbol}. Please try again.`, 'warning');
                 }
             }
 
