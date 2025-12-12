@@ -30,25 +30,32 @@ from predictive_signals import (
     clear_all_signal_state
 )
 
-# Clear signal state on server startup for fresh notifications
-clear_all_signal_state()
+# Defer signal state clearing to first request (not startup)
+_startup_initialized = False
+
+def _lazy_init():
+    global _startup_initialized
+    if not _startup_initialized:
+        clear_all_signal_state()
+        _startup_initialized = True
 
 logger = logging.getLogger(__name__)
+
+@app.route('/healthz')
+@app.route('/health')
+def health_check():
+    """Fast health check endpoint - responds immediately"""
+    return {"status": "healthy"}, 200
 
 @app.route('/')
 def index():
     """Main Dashboard - Professional Trading Interface"""
+    _lazy_init()  # Initialize on first real request, not startup
     response = make_response(render_template('professional_dashboard.html'))
-    # Force browser to reload updated JavaScript
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
     return response
-
-@app.route('/healthz')
-def health_check():
-    """Health check endpoint for Render deployment"""
-    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}, 200
 
 @app.route('/analysis')
 def analysis():
