@@ -121,11 +121,26 @@ def check_signal_still_valid(symbol: str, current_price: float, price_change_24h
         return False, f"Take profit hit at ${current_price:.4f}"
     
     # Check if HTF trend reversed against signal
+    # Invalidate on ANY bearish HTF for BUY, or ANY bullish HTF for SELL
     htf_trend = get_htf_trend(symbol, current_price, price_change_24h)
-    if action == 'BUY' and htf_trend == 'BEARISH':
-        return False, f"HTF trend reversed to BEARISH"
-    if action == 'SELL' and htf_trend == 'BULLISH':
-        return False, f"HTF trend reversed to BULLISH"
+    stored_htf = signal.get('htf_trend', 'NEUTRAL')
+    
+    if action == 'BUY' and htf_trend in ['BEARISH', 'WEAK_BEARISH']:
+        return False, f"HTF trend reversed to {htf_trend} - closing BUY"
+    if action == 'SELL' and htf_trend in ['BULLISH', 'WEAK_BULLISH']:
+        return False, f"HTF trend reversed to {htf_trend} - closing SELL"
+    
+    # Also invalidate if HTF changed significantly from when signal was created
+    if stored_htf != htf_trend:
+        bullish_states = ['BULLISH', 'WEAK_BULLISH']
+        bearish_states = ['BEARISH', 'WEAK_BEARISH']
+        
+        # If stored was bullish/neutral and now bearish, invalidate BUY
+        if action == 'BUY' and stored_htf not in bearish_states and htf_trend in bearish_states:
+            return False, f"HTF broke from {stored_htf} to {htf_trend}"
+        # If stored was bearish/neutral and now bullish, invalidate SELL
+        if action == 'SELL' and stored_htf not in bullish_states and htf_trend in bullish_states:
+            return False, f"HTF broke from {stored_htf} to {htf_trend}"
     
     return True, None
 
@@ -453,12 +468,18 @@ def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str,
         bottom_score += 20
         reasoning.append("Volume climax on sell-off")
     
-    # HTF ALIGNMENT BONUS - only give signals aligned with HTF
-    if htf_trend in ['WEAK_BEARISH', 'BEARISH']:
-        bottom_score += 15  # Buying the dip in downtrend can be reversal
-        reasoning.append(f"Counter-trend setup (HTF: {htf_trend})")
-    elif htf_trend in ['BULLISH', 'WEAK_BULLISH']:
-        bottom_score += 10  # Buying dip in uptrend
+    # HTF ALIGNMENT - BUY signals REQUIRE bullish or neutral HTF
+    # Block BUY signals when HTF is bearish (don't fight the trend)
+    if htf_trend in ['BULLISH', 'WEAK_BULLISH']:
+        bottom_score += 20  # Strong bonus for aligned HTF
+        reasoning.append(f"HTF aligned bullish ({htf_trend})")
+    elif htf_trend == 'NEUTRAL':
+        bottom_score += 10  # Small bonus for neutral
+        reasoning.append(f"HTF neutral - acceptable for BUY")
+    else:
+        # BEARISH or WEAK_BEARISH - penalize BUY signals heavily
+        bottom_score -= 30  # Strong penalty - don't buy in downtrends
+        reasoning.append(f"HTF BEARISH - signal blocked ({htf_trend})")
     
     # TOP DETECTION (SELL before dump) - HIGHER THRESHOLDS
     top_score = 0
@@ -487,12 +508,18 @@ def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str,
         top_score += 20
         reasoning.append("Volume climax on rally")
     
-    # HTF ALIGNMENT BONUS
-    if htf_trend in ['WEAK_BULLISH', 'BULLISH']:
-        top_score += 15  # Selling the top in uptrend can be reversal
-        reasoning.append(f"Counter-trend setup (HTF: {htf_trend})")
-    elif htf_trend in ['BEARISH', 'WEAK_BEARISH']:
-        top_score += 10  # Selling rally in downtrend
+    # HTF ALIGNMENT - SELL signals REQUIRE bearish or neutral HTF
+    # Block SELL signals when HTF is bullish (don't fight the trend)
+    if htf_trend in ['BEARISH', 'WEAK_BEARISH']:
+        top_score += 20  # Strong bonus for aligned HTF
+        reasoning.append(f"HTF aligned bearish ({htf_trend})")
+    elif htf_trend == 'NEUTRAL':
+        top_score += 10  # Small bonus for neutral
+        reasoning.append(f"HTF neutral - acceptable for SELL")
+    else:
+        # BULLISH or WEAK_BULLISH - penalize SELL signals heavily
+        top_score -= 30  # Strong penalty - don't sell in uptrends
+        reasoning.append(f"HTF BULLISH - signal blocked ({htf_trend})")
     
     # Determine signal - HIGHER THRESHOLDS (60+ instead of 40+)
     if bottom_score > top_score and bottom_score >= 60:
