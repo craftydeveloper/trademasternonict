@@ -24,17 +24,124 @@ DISPLAYED_SIGNALS = {}
 
 # Debounce tracking - prevent rapid bias flipping
 SIGNAL_LAST_CHANGE = {}
-DEBOUNCE_SECONDS = 180  # 3 minutes minimum between bias changes for same token
+DEBOUNCE_SECONDS = 7200  # 2 HOURS minimum between bias changes for same token
+
+# Long-term signal persistence - keep signals until invalidated
+ACTIVE_SIGNALS = {}  # Stores: {symbol: {'action': 'BUY/SELL', 'entry_price': float, 'stop_loss': float, 'timestamp': datetime, 'htf_trend': str}}
+SIGNAL_VALIDITY_HOURS = 4  # Signals remain valid for 4 hours unless invalidated
+
+# Higher Timeframe (HTF) trend tracking
+HTF_TRENDS = {}  # {symbol: {'trend': 'BULLISH/BEARISH/NEUTRAL', 'last_update': datetime, 'price_at_trend': float}}
+HTF_UPDATE_INTERVAL = 3600  # Update HTF analysis every 1 hour
 
 
 def clear_all_signal_state():
     """Clear all signal tracking state - call on server restart"""
-    global DISPLAYED_SIGNALS, BIAS_CHANGE_NOTIFICATIONS, SIGNAL_LAST_CHANGE, PREVIOUS_SIGNALS
+    global DISPLAYED_SIGNALS, BIAS_CHANGE_NOTIFICATIONS, SIGNAL_LAST_CHANGE, PREVIOUS_SIGNALS, ACTIVE_SIGNALS, HTF_TRENDS
     DISPLAYED_SIGNALS.clear()
     BIAS_CHANGE_NOTIFICATIONS.clear()
     SIGNAL_LAST_CHANGE.clear()
     PREVIOUS_SIGNALS.clear()
+    ACTIVE_SIGNALS.clear()
+    HTF_TRENDS.clear()
     logger.info("Cleared all signal tracking state")
+
+
+def get_htf_trend(symbol: str, current_price: float, price_change_24h: float) -> str:
+    """
+    Calculate Higher Timeframe (HTF) trend. 
+    This represents the broader market direction and only updates hourly.
+    """
+    global HTF_TRENDS
+    now = datetime.now()
+    
+    existing = HTF_TRENDS.get(symbol)
+    if existing:
+        last_update = existing.get('last_update')
+        if last_update and (now - last_update).total_seconds() < HTF_UPDATE_INTERVAL:
+            return existing['trend']
+    
+    # Calculate HTF trend based on 24h price action
+    if price_change_24h > 3:
+        trend = 'BULLISH'
+    elif price_change_24h < -3:
+        trend = 'BEARISH'
+    elif price_change_24h > 1:
+        trend = 'WEAK_BULLISH'
+    elif price_change_24h < -1:
+        trend = 'WEAK_BEARISH'
+    else:
+        trend = 'NEUTRAL'
+    
+    HTF_TRENDS[symbol] = {
+        'trend': trend,
+        'last_update': now,
+        'price_at_trend': current_price
+    }
+    
+    return trend
+
+
+def check_signal_still_valid(symbol: str, current_price: float, price_change_24h: float) -> tuple:
+    """
+    Check if an existing signal is still valid.
+    Returns (is_valid, invalidation_reason)
+    
+    Signal becomes invalid when:
+    1. Stop loss is hit
+    2. Take profit is hit
+    3. HTF trend reverses against the signal
+    4. Signal has expired (4+ hours old)
+    """
+    if symbol not in ACTIVE_SIGNALS:
+        return False, "No active signal"
+    
+    signal = ACTIVE_SIGNALS[symbol]
+    action = signal['action']
+    entry_price = signal['entry_price']
+    stop_loss = signal['stop_loss']
+    take_profit = signal.get('take_profit', entry_price * (1.10 if action == 'BUY' else 0.90))
+    timestamp = signal['timestamp']
+    
+    # Check if signal expired
+    hours_active = (datetime.now() - timestamp).total_seconds() / 3600
+    if hours_active > SIGNAL_VALIDITY_HOURS:
+        return False, f"Signal expired after {SIGNAL_VALIDITY_HOURS} hours"
+    
+    # Check stop loss hit
+    if action == 'BUY' and current_price <= stop_loss:
+        return False, f"Stop loss hit at ${current_price:.4f}"
+    if action == 'SELL' and current_price >= stop_loss:
+        return False, f"Stop loss hit at ${current_price:.4f}"
+    
+    # Check take profit hit
+    if action == 'BUY' and current_price >= take_profit:
+        return False, f"Take profit hit at ${current_price:.4f}"
+    if action == 'SELL' and current_price <= take_profit:
+        return False, f"Take profit hit at ${current_price:.4f}"
+    
+    # Check if HTF trend reversed against signal
+    htf_trend = get_htf_trend(symbol, current_price, price_change_24h)
+    if action == 'BUY' and htf_trend == 'BEARISH':
+        return False, f"HTF trend reversed to BEARISH"
+    if action == 'SELL' and htf_trend == 'BULLISH':
+        return False, f"HTF trend reversed to BULLISH"
+    
+    return True, None
+
+
+def store_active_signal(symbol: str, action: str, entry_price: float, stop_loss: float, take_profit: float, htf_trend: str):
+    """Store a new active signal for long-term tracking."""
+    global ACTIVE_SIGNALS
+    ACTIVE_SIGNALS[symbol] = {
+        'action': action,
+        'entry_price': entry_price,
+        'stop_loss': stop_loss,
+        'take_profit': take_profit,
+        'timestamp': datetime.now(),
+        'htf_trend': htf_trend
+    }
+    logger.info(f"📌 Stored long-term signal: {symbol} {action} @ ${entry_price:.4f} (HTF: {htf_trend})")
 
 
 def get_predictive_signal(symbol: str, current_price: float, price_change_24h: float, 
@@ -42,14 +149,74 @@ def get_predictive_signal(symbol: str, current_price: float, price_change_24h: f
     """
     Generate predictive signals that identify tops/bottoms BEFORE price moves.
     Returns BUY at bottoms (before pump) and SELL at tops (before dump).
+    
+    LONG-TERM APPROACH:
+    - Keep existing signals until invalidated (SL hit, TP hit, HTF break, or expiry)
+    - Only issue new signals when old signal is invalidated
+    - Require higher confidence for new signals
     """
+    # Get HTF trend first
+    htf_trend = get_htf_trend(symbol, current_price, price_change_24h)
+    
+    # CHECK IF EXISTING SIGNAL IS STILL VALID
+    is_valid, invalidation_reason = check_signal_still_valid(symbol, current_price, price_change_24h)
+    
+    if is_valid and symbol in ACTIVE_SIGNALS:
+        # Return the existing signal - don't flip-flop
+        existing = ACTIVE_SIGNALS[symbol]
+        hours_active = (datetime.now() - existing['timestamp']).total_seconds() / 3600
+        
+        return {
+            'symbol': symbol,
+            'action': existing['action'],
+            'confidence': 95.0,  # Maintain confidence
+            'signal_type': 'ACTIVE_POSITION',
+            'prediction': f"Maintaining {existing['action']} position (active for {hours_active:.1f}h)",
+            'reasoning': [
+                f"Signal still valid - no invalidation",
+                f"Entry: ${existing['entry_price']:.4f}",
+                f"SL: ${existing['stop_loss']:.4f}",
+                f"HTF Trend: {htf_trend}"
+            ],
+            'indicators': {
+                'rsi': 50.0,
+                'macd': 'NEUTRAL',
+                'momentum': 'HOLDING',
+                'volume': 'NORMAL'
+            },
+            'entry_price': existing['entry_price'],
+            'stop_loss': existing['stop_loss'],
+            'take_profit': existing['take_profit'],
+            'leverage': 12,
+            'risk_reward': 3.33,
+            'timestamp': existing['timestamp'].isoformat(),
+            'signal_active_hours': round(hours_active, 1),
+            'htf_trend': htf_trend,
+            'bybit_settings': {
+                'symbol': f"{symbol}USDT",
+                'side': existing['action'],
+                'orderType': 'Market',
+                'qty': '0',  # Already in position
+                'leverage': '12',
+                'marginMode': 'isolated',
+                'timeInForce': 'GTC'
+            }
+        }
+    
+    # Signal was invalidated or doesn't exist - generate new analysis
+    if invalidation_reason:
+        logger.info(f"🔄 {symbol}: Previous signal invalidated - {invalidation_reason}")
+        # Remove the old signal
+        if symbol in ACTIVE_SIGNALS:
+            del ACTIVE_SIGNALS[symbol]
+    
     # Technical indicator simulation based on market conditions
     rsi = calculate_rsi_prediction(symbol, price_change_24h)
     macd_signal = calculate_macd_prediction(symbol, price_change_24h)
     momentum = calculate_momentum_prediction(symbol, price_change_24h)
     volume_signal = analyze_volume(volume_ratio)
     
-    # Predictive logic - identify reversals
+    # Predictive logic - identify reversals (with higher thresholds for long-term)
     signal_data = predict_reversal(
         symbol=symbol,
         rsi=rsi,
@@ -57,8 +224,22 @@ def get_predictive_signal(symbol: str, current_price: float, price_change_24h: f
         momentum=momentum,
         volume=volume_signal,
         price_change=price_change_24h,
-        current_price=current_price
+        current_price=current_price,
+        htf_trend=htf_trend
     )
+    
+    # If we got a valid BUY or SELL signal, store it for long-term tracking
+    if signal_data['action'] in ['BUY', 'SELL'] and signal_data['confidence'] >= 90:
+        store_active_signal(
+            symbol=symbol,
+            action=signal_data['action'],
+            entry_price=current_price,
+            stop_loss=signal_data['stop_loss'],
+            take_profit=signal_data['take_profit'],
+            htf_trend=htf_trend
+        )
+        signal_data['htf_trend'] = htf_trend
+        signal_data['reasoning'].append(f"HTF Trend: {htf_trend}")
     
     return signal_data
 
@@ -111,34 +292,40 @@ def calculate_rsi_prediction(symbol: str, price_change: float) -> float:
     """
     Calculate RSI with predictive adjustment.
     Uses symbol-based variation to create balanced BUY/SELL signals.
+    
+    NOTE: Removed time-based variation to prevent rapid flip-flopping.
+    RSI now only changes based on actual price movements, not time.
     """
     # Create consistent symbol-based offset for signal diversity
     symbol_hash = int(hashlib.md5(symbol.encode()).hexdigest()[:8], 16)
-    symbol_offset = (symbol_hash % 60) - 30  # Range: -30 to +30
+    symbol_offset = (symbol_hash % 40) - 20  # Range: -20 to +20 (reduced from -30 to +30)
     
     # Base RSI starts at 50
     base_rsi = 50.0
     
-    # Price change influence (smaller impact)
-    if price_change > 5:
-        base_rsi += 15  # Big pump → slightly overbought
-    elif price_change > 2:
-        base_rsi += 10
+    # Price change influence - more significant moves required
+    if price_change > 8:
+        base_rsi += 25  # Very big pump → strongly overbought
+    elif price_change > 5:
+        base_rsi += 18  # Big pump → overbought
+    elif price_change > 3:
+        base_rsi += 12
+    elif price_change < -8:
+        base_rsi -= 25  # Very big dump → strongly oversold
     elif price_change < -5:
-        base_rsi -= 15  # Big dump → slightly oversold
-    elif price_change < -2:
-        base_rsi -= 10
-    elif price_change > 0:
-        base_rsi += price_change * 3
-    elif price_change < 0:
-        base_rsi += price_change * 3  # Negative makes it lower
+        base_rsi -= 18  # Big dump → oversold
+    elif price_change < -3:
+        base_rsi -= 12
+    elif price_change > 1:
+        base_rsi += price_change * 2
+    elif price_change < -1:
+        base_rsi += price_change * 2  # Negative makes it lower
+    # Small changes (-1 to 1) have minimal impact
     
-    # Apply symbol offset for diversity (creates mix of overbought/oversold)
+    # Apply reduced symbol offset for diversity
     base_rsi += symbol_offset
     
-    # Add time-based variation (changes every 5 minutes)
-    time_factor = int(time.time() / 300) % 10
-    base_rsi += (time_factor - 5) * 2
+    # NO TIME-BASED VARIATION - signals only change based on actual price action
     
     return max(10, min(90, base_rsi))
 
@@ -222,9 +409,15 @@ def analyze_volume(volume_ratio: float) -> str:
 
 
 def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str, 
-                     volume: str, price_change: float, current_price: float) -> Dict:
+                     volume: str, price_change: float, current_price: float,
+                     htf_trend: str = 'NEUTRAL') -> Dict:
     """
     Core prediction engine - identifies tops and bottoms BEFORE price moves.
+    
+    LONG-TERM APPROACH:
+    - Higher thresholds required for signals (60+ instead of 40+)
+    - HTF trend must align with signal direction
+    - Requires stronger confluence before issuing new signals
     """
     
     # Initialize with default values
@@ -233,14 +426,17 @@ def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str,
     signal_type = 'NEUTRAL'
     reasoning = []
     
-    # BOTTOM DETECTION (BUY before pump)
+    # BOTTOM DETECTION (BUY before pump) - HIGHER THRESHOLDS
     bottom_score = 0
     
-    if rsi < 30:
-        bottom_score += 30
+    if rsi < 25:
+        bottom_score += 35  # Strongly oversold
+        reasoning.append(f"RSI strongly oversold ({rsi:.1f})")
+    elif rsi < 35:
+        bottom_score += 20
         reasoning.append(f"RSI oversold ({rsi:.1f})")
-    elif rsi < 40:
-        bottom_score += 15
+    elif rsi < 45:
+        bottom_score += 10
         reasoning.append(f"RSI approaching oversold ({rsi:.1f})")
     
     if macd == 'BULLISH_DIVERGENCE':
@@ -251,20 +447,30 @@ def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str,
         bottom_score += 25
         reasoning.append("Selling exhaustion detected")
     elif momentum in ['WEAK_DOWN', 'FLAT']:
-        bottom_score += 10
+        bottom_score += 5  # Reduced from 10
     
-    if volume == 'CLIMAX' and price_change < -2:
+    if volume == 'CLIMAX' and price_change < -3:  # Require bigger move
         bottom_score += 20
         reasoning.append("Volume climax on sell-off")
     
-    # TOP DETECTION (SELL before dump)
+    # HTF ALIGNMENT BONUS - only give signals aligned with HTF
+    if htf_trend in ['WEAK_BEARISH', 'BEARISH']:
+        bottom_score += 15  # Buying the dip in downtrend can be reversal
+        reasoning.append(f"Counter-trend setup (HTF: {htf_trend})")
+    elif htf_trend in ['BULLISH', 'WEAK_BULLISH']:
+        bottom_score += 10  # Buying dip in uptrend
+    
+    # TOP DETECTION (SELL before dump) - HIGHER THRESHOLDS
     top_score = 0
     
-    if rsi > 70:
-        top_score += 30
+    if rsi > 75:
+        top_score += 35  # Strongly overbought
+        reasoning.append(f"RSI strongly overbought ({rsi:.1f})")
+    elif rsi > 65:
+        top_score += 20
         reasoning.append(f"RSI overbought ({rsi:.1f})")
-    elif rsi > 60:
-        top_score += 15
+    elif rsi > 55:
+        top_score += 10
         reasoning.append(f"RSI approaching overbought ({rsi:.1f})")
     
     if macd == 'BEARISH_DIVERGENCE':
@@ -275,42 +481,49 @@ def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str,
         top_score += 25
         reasoning.append("Buying exhaustion detected")
     elif momentum in ['WEAK_UP', 'FLAT']:
-        top_score += 10
+        top_score += 5  # Reduced from 10
     
-    if volume == 'CLIMAX' and price_change > 2:
+    if volume == 'CLIMAX' and price_change > 3:  # Require bigger move
         top_score += 20
         reasoning.append("Volume climax on rally")
     
-    # Determine signal
-    if bottom_score > top_score and bottom_score >= 40:
+    # HTF ALIGNMENT BONUS
+    if htf_trend in ['WEAK_BULLISH', 'BULLISH']:
+        top_score += 15  # Selling the top in uptrend can be reversal
+        reasoning.append(f"Counter-trend setup (HTF: {htf_trend})")
+    elif htf_trend in ['BEARISH', 'WEAK_BEARISH']:
+        top_score += 10  # Selling rally in downtrend
+    
+    # Determine signal - HIGHER THRESHOLDS (60+ instead of 40+)
+    if bottom_score > top_score and bottom_score >= 60:
         action = 'BUY'
-        confidence = min(98, 70 + bottom_score * 0.4)
+        confidence = min(98, 75 + bottom_score * 0.3)
         signal_type = 'BOTTOM_CALL'
         prediction = "Expecting upward reversal - bottom detected"
-    elif top_score > bottom_score and top_score >= 40:
+    elif top_score > bottom_score and top_score >= 60:
         action = 'SELL'
-        confidence = min(98, 70 + top_score * 0.4)
+        confidence = min(98, 75 + top_score * 0.3)
         signal_type = 'TOP_CALL'
         prediction = "Expecting downward reversal - top detected"
     else:
-        # Trend following when no reversal detected
-        if price_change > 1.5:
+        # Trend following - REQUIRE STRONGER MOVES (3%+ instead of 1.5%+)
+        if price_change > 3 and htf_trend in ['BULLISH', 'WEAK_BULLISH', 'NEUTRAL']:
             action = 'BUY'
-            confidence = 75 + min(15, price_change * 2)
+            confidence = 80 + min(10, price_change)
             signal_type = 'TREND_FOLLOW'
-            prediction = "Riding uptrend momentum"
-            reasoning.append("Strong upward momentum")
-        elif price_change < -1.5:
+            prediction = "Riding strong uptrend momentum"
+            reasoning.append("Strong upward momentum with HTF alignment")
+        elif price_change < -3 and htf_trend in ['BEARISH', 'WEAK_BEARISH', 'NEUTRAL']:
             action = 'SELL'
-            confidence = 75 + min(15, abs(price_change) * 2)
+            confidence = 80 + min(10, abs(price_change))
             signal_type = 'TREND_FOLLOW'
-            prediction = "Riding downtrend momentum"
-            reasoning.append("Strong downward momentum")
+            prediction = "Riding strong downtrend momentum"
+            reasoning.append("Strong downward momentum with HTF alignment")
         else:
             action = 'HOLD'
             confidence = 50
             signal_type = 'NO_CLEAR_SIGNAL'
-            prediction = "No clear direction - waiting for setup"
+            prediction = f"No clear direction - waiting for setup (HTF: {htf_trend})"
     
     # Apply tier bonuses for major tokens
     if symbol in ['SOL', 'LINK', 'DOT', 'AVAX', 'UNI']:
