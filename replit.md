@@ -148,9 +148,17 @@ The signal system now uses ALL timeframes for comprehensive analysis:
 - Overall bias: STRONG_BULLISH, BULLISH, NEUTRAL, BEARISH, STRONG_BEARISH
 - Color-coded RSI display: green for oversold (<35), red for overbought (>65)
 
+**Per-Timeframe Bias Display (Dec 13, 2025):**
+- Shows individual BUY/SELL/HOLD bias for each timeframe
+- Displayed as: "TF Bias (15m / 1h / 4h / 1d / 1w)" row
+- Color-coded: green for BUY, red for SELL, gray for HOLD
+- Helps traders see which timeframes agree/disagree
+- RSI thresholds for bias: <45 = BUY, >55 = SELL, 45-55 = HOLD
+- This is analysis data only, not the main signal
+
 **Implementation:**
 - `calculate_all_timeframe_rsi()` - Calculates RSI for all 5 timeframes
-- `get_multi_timeframe_confluence()` - Analyzes agreement across timeframes
+- `get_multi_timeframe_confluence()` - Returns `timeframe_bias` dict with BUY/SELL/HOLD per TF
 - `predict_reversal()` - Uses confluence for better signal scoring
 - Frontend displays all 5 RSI values with color coding + confluence indicator
 

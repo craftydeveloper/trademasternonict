@@ -956,6 +956,20 @@
                                             <span style="color: ${(rsi['1w'] || 50) < 35 ? 'var(--accent-green)' : (rsi['1w'] || 50) > 65 ? 'var(--accent-red)' : 'inherit'}">${rsi['1w'] || 'N/A'}</span>
                                         </div>
                                     </div>
+                                    <div class="research-item" style="grid-column: span 2;">
+                                        <div class="research-label">TF Bias (15m / 1h / 4h / 1d / 1w)</div>
+                                        <div class="research-value" style="font-size: 0.8rem;">
+                                            ${(() => {
+                                                const bias = research.tf_confluence?.timeframe_bias || {};
+                                                const getBiasColor = (b) => b === 'BUY' ? 'var(--accent-green)' : b === 'SELL' ? 'var(--accent-red)' : 'var(--text-muted)';
+                                                return `<span style="color: ${getBiasColor(bias['15m'])}">${bias['15m'] || 'HOLD'}</span> / 
+                                                        <span style="color: ${getBiasColor(bias['1h'])}">${bias['1h'] || 'HOLD'}</span> / 
+                                                        <span style="color: ${getBiasColor(bias['4h'])}">${bias['4h'] || 'HOLD'}</span> / 
+                                                        <span style="color: ${getBiasColor(bias['1d'])}">${bias['1d'] || 'HOLD'}</span> / 
+                                                        <span style="color: ${getBiasColor(bias['1w'])}">${bias['1w'] || 'HOLD'}</span>`;
+                                            })()}
+                                        </div>
+                                    </div>
                                     <div class="research-item">
                                         <div class="research-label">TF Confluence</div>
                                         <div class="research-value" style="font-size: 0.75rem; color: ${(research.tf_confluence?.overall_bias || '').includes('BULLISH') ? 'var(--accent-green)' : (research.tf_confluence?.overall_bias || '').includes('BEARISH') ? 'var(--accent-red)' : 'var(--text-muted)'}">${research.tf_confluence?.overall_bias || 'NEUTRAL'}</div>

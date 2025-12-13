@@ -187,6 +187,7 @@ def get_multi_timeframe_confluence(rsi_all: Dict) -> Dict:
     total_weight = sum(weights.values())
     
     timeframe_signals = {}
+    timeframe_bias = {}
     
     for tf, rsi in rsi_all.items():
         weight = weights.get(tf, 1)
@@ -195,21 +196,26 @@ def get_multi_timeframe_confluence(rsi_all: Dict) -> Dict:
             bullish_count += 1
             weighted_bullish += weight
             timeframe_signals[tf] = 'OVERSOLD'
+            timeframe_bias[tf] = 'BUY'
         elif rsi > 65:
             bearish_count += 1
             weighted_bearish += weight
             timeframe_signals[tf] = 'OVERBOUGHT'
+            timeframe_bias[tf] = 'SELL'
         elif rsi < 45:
             bullish_count += 0.5
             weighted_bullish += weight * 0.5
             timeframe_signals[tf] = 'LEANING_BULLISH'
+            timeframe_bias[tf] = 'BUY'
         elif rsi > 55:
             bearish_count += 0.5
             weighted_bearish += weight * 0.5
             timeframe_signals[tf] = 'LEANING_BEARISH'
+            timeframe_bias[tf] = 'SELL'
         else:
             neutral_count += 1
             timeframe_signals[tf] = 'NEUTRAL'
+            timeframe_bias[tf] = 'HOLD'
     
     # Calculate overall confluence
     bullish_pct = (weighted_bullish / total_weight) * 100
@@ -242,7 +248,8 @@ def get_multi_timeframe_confluence(rsi_all: Dict) -> Dict:
         'confluence_strength': confluence_strength,
         'bullish_weight': round(bullish_pct, 1),
         'bearish_weight': round(bearish_pct, 1),
-        'timeframe_signals': timeframe_signals
+        'timeframe_signals': timeframe_signals,
+        'timeframe_bias': timeframe_bias
     }
 
 
