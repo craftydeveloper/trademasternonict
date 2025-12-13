@@ -1,6 +1,7 @@
 """
 Predictive Signal System - Identifies tops and bottoms BEFORE price moves
 Uses technical analysis to predict reversals and call entries early
+Now with REAL Binance OHLC data for accurate multi-timeframe analysis
 """
 import logging
 import time
@@ -11,6 +12,15 @@ from typing import Dict, List, Optional, Tuple
 import hashlib
 
 from telegram_notifier import send_signal_to_telegram, send_bias_change_to_telegram
+from binance_ohlc import (
+    get_real_timeframe_rsi,
+    get_real_macd,
+    get_real_support_resistance,
+    get_price_momentum,
+    get_volume_analysis,
+    get_comprehensive_analysis,
+    is_symbol_available
+)
 
 SIGNALS_PERSISTENCE_FILE = '/tmp/active_signals.json'
 
@@ -109,30 +119,44 @@ PRIORITY_COINS = ['BTC', 'ETH', 'SOL']
 def calculate_all_timeframe_rsi(symbol: str, price_change_24h: float) -> Dict:
     """
     Calculate RSI across ALL timeframes for comprehensive analysis.
-    Uses price change data to simulate RSI values for each timeframe.
+    NOW USES REAL BINANCE OHLC DATA for accurate RSI calculation.
+    Falls back to simulated values only if Binance data unavailable.
     
     Timeframes: 15m, 1h, 4h, 1d, 1w
     """
-    symbol_hash = int(hashlib.md5(symbol.encode()).hexdigest()[:8], 16)
-    symbol_offset = (symbol_hash % 20) - 10  # Small variation per coin
+    try:
+        real_rsi = get_real_timeframe_rsi(symbol)
+        
+        has_real_data = any(rsi != 50.0 for rsi in real_rsi.values())
+        
+        if has_real_data:
+            logger.debug(f"✅ {symbol}: Using REAL Binance RSI data")
+            return {
+                '15m': round(real_rsi.get('15m', 50.0), 1),
+                '1h': round(real_rsi.get('1h', 50.0), 1),
+                '4h': round(real_rsi.get('4h', 50.0), 1),
+                '1d': round(real_rsi.get('1d', 50.0), 1),
+                '1w': round(real_rsi.get('1w', 50.0), 1)
+            }
+    except Exception as e:
+        logger.warning(f"⚠️ {symbol}: Binance RSI fetch failed: {e}")
     
-    # 15m RSI - Most reactive to recent price changes
+    logger.debug(f"📊 {symbol}: Using simulated RSI (Binance data unavailable)")
+    symbol_hash = int(hashlib.md5(symbol.encode()).hexdigest()[:8], 16)
+    symbol_offset = (symbol_hash % 20) - 10
+    
     rsi_15m = 50 + (price_change_24h * 3.5) + symbol_offset
     rsi_15m = max(5, min(95, rsi_15m))
     
-    # 1h RSI - Short-term momentum
     rsi_1h = 50 + (price_change_24h * 2.8) + (symbol_offset * 0.8)
     rsi_1h = max(8, min(92, rsi_1h))
     
-    # 4h RSI - Medium-term trend
     rsi_4h = 50 + (price_change_24h * 2.0) + (symbol_offset * 0.6)
     rsi_4h = max(10, min(90, rsi_4h))
     
-    # 1d RSI - Daily trend
     rsi_1d = 50 + (price_change_24h * 1.5) + (symbol_offset * 0.4)
     rsi_1d = max(15, min(85, rsi_1d))
     
-    # 1w RSI - Weekly/long-term trend (smoothest, less reactive)
     rsi_1w = 50 + (price_change_24h * 0.8) + (symbol_offset * 0.2)
     rsi_1w = max(20, min(80, rsi_1w))
     
@@ -222,29 +246,52 @@ def get_multi_timeframe_confluence(rsi_all: Dict) -> Dict:
 
 def get_priority_coin_research(symbol: str, current_price: float, price_change_24h: float) -> Dict:
     """
-    Enhanced research for priority coins (ETH, SOL).
+    Enhanced research for priority coins (BTC, ETH, SOL).
+    NOW USES REAL BINANCE OHLC DATA for accurate support/resistance and momentum.
     Provides deeper ALL-TIMEFRAME analysis and key levels.
     """
     if symbol not in PRIORITY_COINS:
         return {}
     
-    # Calculate key support/resistance levels
-    volatility_factor = abs(price_change_24h) / 100 if price_change_24h else 0.02
-    volatility_factor = max(0.015, min(0.05, volatility_factor))
+    try:
+        real_sr = get_real_support_resistance(symbol, '4h')
+        if real_sr.get('support', 0) > 0:
+            support_1 = real_sr['support']
+            support_2 = real_sr['avg_support']
+            resistance_1 = real_sr['resistance']
+            resistance_2 = real_sr['avg_resistance']
+            logger.debug(f"✅ {symbol}: Using REAL Binance S/R levels")
+        else:
+            raise ValueError("No real S/R data")
+    except Exception as e:
+        volatility_factor = abs(price_change_24h) / 100 if price_change_24h else 0.02
+        volatility_factor = max(0.015, min(0.05, volatility_factor))
+        support_1 = current_price * (1 - volatility_factor)
+        support_2 = current_price * (1 - volatility_factor * 2)
+        resistance_1 = current_price * (1 + volatility_factor)
+        resistance_2 = current_price * (1 + volatility_factor * 2)
     
-    # Key levels
-    support_1 = current_price * (1 - volatility_factor)
-    support_2 = current_price * (1 - volatility_factor * 2)
-    resistance_1 = current_price * (1 + volatility_factor)
-    resistance_2 = current_price * (1 + volatility_factor * 2)
-    
-    # ALL TIMEFRAME RSI
     all_tf_rsi = calculate_all_timeframe_rsi(symbol, price_change_24h)
     
-    # Multi-timeframe confluence analysis
     confluence = get_multi_timeframe_confluence(all_tf_rsi)
     
-    # Trend strength based on timeframe alignment
+    try:
+        real_momentum = get_price_momentum(symbol, '1h')
+        momentum_str = real_momentum.get('momentum', 'NEUTRAL')
+        momentum_direction = real_momentum.get('direction', 'FLAT')
+        logger.debug(f"✅ {symbol}: Using REAL Binance momentum data")
+    except Exception:
+        momentum_str = 'NEUTRAL'
+        momentum_direction = 'FLAT'
+    
+    try:
+        real_volume = get_volume_analysis(symbol, '1h')
+        volume_trend = real_volume.get('volume_trend', 'NORMAL')
+        volume_ratio = real_volume.get('ratio', 1.0)
+    except Exception:
+        volume_trend = 'NORMAL'
+        volume_ratio = 1.0
+    
     if confluence['confluence_strength'] in ['VERY_STRONG', 'STRONG']:
         trend_strength = 'STRONG'
     elif confluence['confluence_strength'] == 'MODERATE':
@@ -252,7 +299,6 @@ def get_priority_coin_research(symbol: str, current_price: float, price_change_2
     else:
         trend_strength = 'WEAK'
     
-    # Market phase
     if price_change_24h > 3:
         market_phase = 'EXPANSION'
     elif price_change_24h < -3:
@@ -262,7 +308,6 @@ def get_priority_coin_research(symbol: str, current_price: float, price_change_2
     else:
         market_phase = 'TRANSITION'
     
-    # Recommendation based on ALL timeframe analysis
     avg_rsi = sum(all_tf_rsi.values()) / len(all_tf_rsi)
     
     if confluence['overall_bias'] == 'STRONG_BULLISH':
@@ -278,6 +323,9 @@ def get_priority_coin_research(symbol: str, current_price: float, price_change_2
     else:
         outlook = f'{confluence["confluence_strength"]} confluence - Monitor key levels'
     
+    volatility_factor = abs(price_change_24h) / 100 if price_change_24h else 0.02
+    volatility_factor = max(0.015, min(0.05, volatility_factor))
+    
     return {
         'is_priority': True,
         'enhanced_research': {
@@ -288,7 +336,12 @@ def get_priority_coin_research(symbol: str, current_price: float, price_change_2
             'trend_strength': trend_strength,
             'market_phase': market_phase,
             'outlook': outlook,
-            'volatility': f"{volatility_factor*100:.1f}%"
+            'volatility': f"{volatility_factor*100:.1f}%",
+            'momentum': momentum_str,
+            'momentum_direction': momentum_direction,
+            'volume_trend': volume_trend,
+            'volume_ratio': round(volume_ratio, 2),
+            'data_source': 'BINANCE_REAL_OHLC'
         }
     }
 

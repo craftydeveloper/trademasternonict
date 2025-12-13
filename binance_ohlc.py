@@ -1,0 +1,446 @@
+"""
+Real OHLC Data Fetcher - Real candlestick data for accurate technical analysis
+Uses CryptoCompare's free OHLC API (works globally, no restrictions)
+Fallback to Bybit public API if needed
+"""
+import logging
+import time
+import requests
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Tuple
+import threading
+
+logger = logging.getLogger(__name__)
+
+CRYPTOCOMPARE_API_BASE = "https://min-api.cryptocompare.com/data/v2"
+BYBIT_API_BASE = "https://api.bybit.com/v5/market"
+
+CACHE_DURATION = {
+    '15m': 300,    # 5 min cache for 15m candles
+    '1h': 900,     # 15 min cache for 1h candles
+    '4h': 1800,    # 30 min cache for 4h candles
+    '1d': 3600,    # 1 hour cache for daily candles
+    '1w': 7200,    # 2 hour cache for weekly candles
+}
+
+CRYPTOCOMPARE_TF_MAP = {
+    '15m': ('histominute', 15),
+    '1h': ('histohour', 1),
+    '4h': ('histohour', 4),
+    '1d': ('histoday', 1),
+    '1w': ('histoday', 7),
+}
+
+_ohlc_cache = {}
+_cache_lock = threading.Lock()
+
+
+def fetch_cryptocompare_ohlc(symbol: str, timeframe: str, limit: int = 50) -> Optional[List[Dict]]:
+    """
+    Fetch OHLC data from CryptoCompare (works globally, no geo-restrictions).
+    """
+    try:
+        symbol = symbol.upper().strip()
+        
+        if timeframe not in CRYPTOCOMPARE_TF_MAP:
+            logger.warning(f"Unknown timeframe: {timeframe}")
+            return None
+        
+        endpoint, aggregation = CRYPTOCOMPARE_TF_MAP[timeframe]
+        
+        url = f"{CRYPTOCOMPARE_API_BASE}/{endpoint}"
+        params = {
+            'fsym': symbol,
+            'tsym': 'USDT',
+            'limit': limit,
+            'aggregate': aggregation
+        }
+        
+        response = requests.get(url, params=params, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('Response') == 'Success' and data.get('Data', {}).get('Data'):
+                ohlc_data = data['Data']['Data']
+                parsed = []
+                for candle in ohlc_data:
+                    if candle.get('close', 0) > 0:
+                        parsed.append({
+                            'open_time': datetime.fromtimestamp(candle['time']),
+                            'open': float(candle['open']),
+                            'high': float(candle['high']),
+                            'low': float(candle['low']),
+                            'close': float(candle['close']),
+                            'volume': float(candle.get('volumefrom', 0)),
+                            'close_time': datetime.fromtimestamp(candle['time']),
+                            'quote_volume': float(candle.get('volumeto', 0)),
+                            'trades': 0
+                        })
+                if parsed:
+                    logger.debug(f"✅ CryptoCompare: Got {len(parsed)} candles for {symbol} {timeframe}")
+                    return parsed
+        
+        logger.warning(f"CryptoCompare returned no data for {symbol}")
+        return None
+        
+    except requests.exceptions.Timeout:
+        logger.warning(f"Timeout fetching {symbol} {timeframe} from CryptoCompare")
+        return None
+    except Exception as e:
+        logger.error(f"Error fetching OHLC for {symbol}: {e}")
+        return None
+
+
+def fetch_bybit_ohlc(symbol: str, timeframe: str, limit: int = 50) -> Optional[List[Dict]]:
+    """
+    Fallback: Fetch OHLC data from Bybit public API.
+    """
+    try:
+        symbol = symbol.upper().strip()
+        bybit_symbol = f"{symbol}USDT"
+        
+        tf_map = {
+            '15m': '15',
+            '1h': '60',
+            '4h': '240',
+            '1d': 'D',
+            '1w': 'W',
+        }
+        
+        if timeframe not in tf_map:
+            return None
+        
+        url = f"{BYBIT_API_BASE}/kline"
+        params = {
+            'category': 'linear',
+            'symbol': bybit_symbol,
+            'interval': tf_map[timeframe],
+            'limit': limit
+        }
+        
+        response = requests.get(url, params=params, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('retCode') == 0 and data.get('result', {}).get('list'):
+                klines = data['result']['list']
+                parsed = []
+                for k in reversed(klines):
+                    parsed.append({
+                        'open_time': datetime.fromtimestamp(int(k[0]) / 1000),
+                        'open': float(k[1]),
+                        'high': float(k[2]),
+                        'low': float(k[3]),
+                        'close': float(k[4]),
+                        'volume': float(k[5]),
+                        'close_time': datetime.fromtimestamp(int(k[0]) / 1000),
+                        'quote_volume': float(k[6]) if len(k) > 6 else 0,
+                        'trades': 0
+                    })
+                if parsed:
+                    logger.debug(f"✅ Bybit: Got {len(parsed)} candles for {symbol} {timeframe}")
+                    return parsed
+        
+        return None
+        
+    except Exception as e:
+        logger.warning(f"Bybit fallback failed for {symbol}: {e}")
+        return None
+
+
+def get_cached_ohlc(symbol: str, interval: str, limit: int = 50) -> Optional[List[Dict]]:
+    """Get OHLC data with caching to prevent rate limiting"""
+    cache_key = f"{symbol}_{interval}"
+    cache_duration = CACHE_DURATION.get(interval, 600)
+    
+    with _cache_lock:
+        if cache_key in _ohlc_cache:
+            cached = _ohlc_cache[cache_key]
+            if time.time() - cached['timestamp'] < cache_duration:
+                return cached['data']
+    
+    ohlc = fetch_cryptocompare_ohlc(symbol, interval, limit)
+    
+    if not ohlc or len(ohlc) < 10:
+        ohlc = fetch_bybit_ohlc(symbol, interval, limit)
+    
+    if ohlc:
+        with _cache_lock:
+            _ohlc_cache[cache_key] = {
+                'data': ohlc,
+                'timestamp': time.time()
+            }
+        return ohlc
+    
+    return None
+
+
+def calculate_rsi_from_closes(closes: List[float], period: int = 14) -> float:
+    """
+    Calculate RSI using actual closing prices.
+    RSI = 100 - (100 / (1 + RS))
+    RS = Average Gain / Average Loss
+    """
+    if len(closes) < period + 1:
+        return 50.0
+    
+    changes = []
+    for i in range(1, len(closes)):
+        changes.append(closes[i] - closes[i-1])
+    
+    if len(changes) < period:
+        return 50.0
+    
+    gains = []
+    losses = []
+    for change in changes[-period:]:
+        if change > 0:
+            gains.append(change)
+            losses.append(0)
+        else:
+            gains.append(0)
+            losses.append(abs(change))
+    
+    avg_gain = sum(gains) / period
+    avg_loss = sum(losses) / period
+    
+    if avg_loss == 0:
+        return 100.0
+    
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+    
+    return round(rsi, 2)
+
+
+def calculate_macd_from_closes(closes: List[float]) -> Dict:
+    """
+    Calculate MACD using actual closing prices.
+    MACD Line = 12-period EMA - 26-period EMA
+    Signal Line = 9-period EMA of MACD Line
+    """
+    if len(closes) < 26:
+        return {'macd': 0, 'signal': 0, 'histogram': 0, 'trend': 'NEUTRAL'}
+    
+    def ema(data: List[float], period: int) -> List[float]:
+        multiplier = 2 / (period + 1)
+        ema_values = [data[0]]
+        for price in data[1:]:
+            ema_values.append((price * multiplier) + (ema_values[-1] * (1 - multiplier)))
+        return ema_values
+    
+    ema_12 = ema(closes, 12)
+    ema_26 = ema(closes, 26)
+    
+    macd_line = []
+    for i in range(len(ema_26)):
+        macd_line.append(ema_12[i + len(closes) - len(ema_26)] - ema_26[i])
+    
+    if len(macd_line) >= 9:
+        signal_line = ema(macd_line, 9)
+        current_macd = macd_line[-1]
+        current_signal = signal_line[-1]
+        histogram = current_macd - current_signal
+    else:
+        current_macd = macd_line[-1] if macd_line else 0
+        current_signal = 0
+        histogram = 0
+    
+    if histogram > 0 and current_macd > 0:
+        trend = 'BULLISH'
+    elif histogram < 0 and current_macd < 0:
+        trend = 'BEARISH'
+    elif histogram > 0:
+        trend = 'WEAKLY_BULLISH'
+    elif histogram < 0:
+        trend = 'WEAKLY_BEARISH'
+    else:
+        trend = 'NEUTRAL'
+    
+    return {
+        'macd': round(current_macd, 6),
+        'signal': round(current_signal, 6),
+        'histogram': round(histogram, 6),
+        'trend': trend
+    }
+
+
+def get_support_resistance(ohlc_data: List[Dict], lookback: int = 20) -> Dict:
+    """Calculate support and resistance levels from actual price data"""
+    if not ohlc_data or len(ohlc_data) < lookback:
+        return {'support': 0, 'resistance': 0}
+    
+    recent = ohlc_data[-lookback:]
+    
+    highs = [c['high'] for c in recent]
+    lows = [c['low'] for c in recent]
+    
+    resistance = max(highs)
+    support = min(lows)
+    
+    avg_high = sum(highs) / len(highs)
+    avg_low = sum(lows) / len(lows)
+    
+    return {
+        'support': round(support, 6),
+        'resistance': round(resistance, 6),
+        'avg_support': round(avg_low, 6),
+        'avg_resistance': round(avg_high, 6)
+    }
+
+
+def get_real_timeframe_rsi(symbol: str) -> Dict:
+    """
+    Get REAL RSI values for all timeframes using actual OHLC data.
+    Returns RSI for 15m, 1h, 4h, 1d, 1w timeframes.
+    """
+    result = {}
+    timeframes = ['15m', '1h', '4h', '1d', '1w']
+    
+    for tf in timeframes:
+        ohlc = get_cached_ohlc(symbol, tf, limit=50)
+        if ohlc and len(ohlc) >= 15:
+            closes = [c['close'] for c in ohlc]
+            rsi = calculate_rsi_from_closes(closes, period=14)
+            result[tf] = rsi
+        else:
+            result[tf] = 50.0
+    
+    return result
+
+
+def get_real_macd(symbol: str, timeframe: str = '1h') -> Dict:
+    """Get REAL MACD using actual OHLC data"""
+    ohlc = get_cached_ohlc(symbol, timeframe, limit=50)
+    if ohlc and len(ohlc) >= 26:
+        closes = [c['close'] for c in ohlc]
+        return calculate_macd_from_closes(closes)
+    return {'macd': 0, 'signal': 0, 'histogram': 0, 'trend': 'NEUTRAL'}
+
+
+def get_real_support_resistance(symbol: str, timeframe: str = '4h') -> Dict:
+    """Get REAL support/resistance from actual price data"""
+    ohlc = get_cached_ohlc(symbol, timeframe, limit=30)
+    if ohlc:
+        return get_support_resistance(ohlc)
+    return {'support': 0, 'resistance': 0, 'avg_support': 0, 'avg_resistance': 0}
+
+
+def get_price_momentum(symbol: str, timeframe: str = '1h') -> Dict:
+    """Calculate price momentum from real OHLC data"""
+    ohlc = get_cached_ohlc(symbol, timeframe, limit=20)
+    if not ohlc or len(ohlc) < 10:
+        return {'momentum': 'NEUTRAL', 'strength': 0, 'direction': 'FLAT'}
+    
+    closes = [c['close'] for c in ohlc]
+    
+    recent_change = ((closes[-1] - closes[-5]) / closes[-5]) * 100 if closes[-5] > 0 else 0
+    overall_change = ((closes[-1] - closes[0]) / closes[0]) * 100 if closes[0] > 0 else 0
+    
+    if recent_change > 3:
+        momentum = 'STRONG_UP'
+        direction = 'UP'
+    elif recent_change > 1:
+        momentum = 'UP'
+        direction = 'UP'
+    elif recent_change < -3:
+        momentum = 'STRONG_DOWN'
+        direction = 'DOWN'
+    elif recent_change < -1:
+        momentum = 'DOWN'
+        direction = 'DOWN'
+    else:
+        momentum = 'NEUTRAL'
+        direction = 'FLAT'
+    
+    return {
+        'momentum': momentum,
+        'strength': round(abs(recent_change), 2),
+        'direction': direction,
+        'recent_change_pct': round(recent_change, 2),
+        'overall_change_pct': round(overall_change, 2)
+    }
+
+
+def get_volume_analysis(symbol: str, timeframe: str = '1h') -> Dict:
+    """Analyze volume trends from real OHLC data"""
+    ohlc = get_cached_ohlc(symbol, timeframe, limit=20)
+    if not ohlc or len(ohlc) < 10:
+        return {'volume_trend': 'NORMAL', 'ratio': 1.0}
+    
+    volumes = [c['volume'] for c in ohlc]
+    
+    recent_avg = sum(volumes[-5:]) / 5 if len(volumes) >= 5 else sum(volumes) / len(volumes)
+    historical_avg = sum(volumes[:-5]) / len(volumes[:-5]) if len(volumes) > 5 else recent_avg
+    
+    ratio = recent_avg / historical_avg if historical_avg > 0 else 1.0
+    
+    if ratio > 2.0:
+        trend = 'VERY_HIGH'
+    elif ratio > 1.5:
+        trend = 'HIGH'
+    elif ratio < 0.5:
+        trend = 'LOW'
+    elif ratio < 0.75:
+        trend = 'BELOW_AVERAGE'
+    else:
+        trend = 'NORMAL'
+    
+    return {
+        'volume_trend': trend,
+        'ratio': round(ratio, 2),
+        'recent_avg': recent_avg,
+        'historical_avg': historical_avg
+    }
+
+
+def get_comprehensive_analysis(symbol: str) -> Dict:
+    """
+    Get comprehensive technical analysis using REAL OHLC data.
+    """
+    all_tf_rsi = get_real_timeframe_rsi(symbol)
+    macd_1h = get_real_macd(symbol, '1h')
+    macd_4h = get_real_macd(symbol, '4h')
+    support_resistance = get_real_support_resistance(symbol, '4h')
+    momentum = get_price_momentum(symbol, '1h')
+    volume = get_volume_analysis(symbol, '1h')
+    
+    ohlc_1d = get_cached_ohlc(symbol, '1d', limit=2)
+    if ohlc_1d and len(ohlc_1d) >= 2:
+        current_price = ohlc_1d[-1]['close']
+        prev_close = ohlc_1d[-2]['close']
+        price_change_24h = ((current_price - prev_close) / prev_close) * 100 if prev_close > 0 else 0
+    else:
+        current_price = 0
+        price_change_24h = 0
+    
+    return {
+        'symbol': symbol,
+        'current_price': current_price,
+        'price_change_24h': round(price_change_24h, 2),
+        'multi_tf_rsi': all_tf_rsi,
+        'macd_1h': macd_1h,
+        'macd_4h': macd_4h,
+        'support_resistance': support_resistance,
+        'momentum': momentum,
+        'volume': volume,
+        'data_source': 'REAL_OHLC',
+        'timestamp': datetime.now().isoformat()
+    }
+
+
+def is_symbol_available(symbol: str) -> bool:
+    """Check if a symbol is available"""
+    ohlc = fetch_cryptocompare_ohlc(symbol, '1d', limit=1)
+    return ohlc is not None and len(ohlc) > 0
+
+
+def clear_cache():
+    """Clear all cached OHLC data"""
+    global _ohlc_cache
+    with _cache_lock:
+        _ohlc_cache.clear()
+    logger.info("OHLC cache cleared")
+
+
+logger.info("Real OHLC module loaded - CryptoCompare + Bybit data enabled")
