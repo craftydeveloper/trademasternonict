@@ -20,10 +20,10 @@ class BackupDataProvider:
     def __init__(self):
         self.data_cache = {}
         self.cache_timestamp = None
-        self.cache_duration = 90  # 90 second cache to reduce API calls
+        self.cache_duration = 1  # 1 second cache for real-time updates
         
-        # Backup data sources - prioritize CryptoCompare (reliable in production)
-        # CoinGecko as fallback for broader coverage, despite rate limits
+        # Backup data sources - CryptoCompare matches Bybit closely
+        # Note: Bybit API blocked from Replit (geo-restriction), using CryptoCompare as primary
         self.backup_sources = [
             self._get_cryptocompare_prices,
             self._get_coingecko_live,
@@ -31,6 +31,44 @@ class BackupDataProvider:
             self._get_coinbase_prices,
             self._get_cached_prices
         ]
+    
+    def _get_bybit_prices(self) -> Optional[Dict[str, Dict]]:
+        """Fetch from Bybit API (primary source - user's trading platform)"""
+        try:
+            url = "https://api.bybit.com/v5/market/tickers?category=linear"
+            response = requests.get(url, timeout=5)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('retCode') == 0:
+                    tickers = data.get('result', {}).get('list', [])
+                    
+                    prices = {}
+                    for ticker in tickers:
+                        symbol = ticker.get('symbol', '')
+                        if symbol.endswith('USDT'):
+                            base_symbol = symbol.replace('USDT', '')
+                            last_price = float(ticker.get('lastPrice', 0))
+                            price_24h_ago = float(ticker.get('prevPrice24h', 0))
+                            
+                            if last_price > 0:
+                                change_24h = ((last_price - price_24h_ago) / price_24h_ago * 100) if price_24h_ago > 0 else 0
+                                
+                                prices[base_symbol] = {
+                                    'price': last_price,
+                                    'change_24h': change_24h,
+                                    'volume_24h': float(ticker.get('volume24h', 0)),
+                                    'source': 'bybit'
+                                }
+                    
+                    if len(prices) >= 10:
+                        logger.info(f"Bybit: fetched {len(prices)} tokens")
+                        return prices
+                        
+        except Exception as e:
+            logger.warning(f"Bybit error: {e}")
+        
+        return None
     
     def _get_cryptocompare_prices(self) -> Optional[Dict[str, Dict]]:
         """Fetch from CryptoCompare API (reliable, no rate limits)"""
