@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 import hashlib
 
+from telegram_notifier import send_signal_to_telegram, send_bias_change_to_telegram
+
 logger = logging.getLogger(__name__)
 
 # Track active trades - don't issue new signals until trade completes
@@ -236,6 +238,20 @@ def store_active_signal(symbol: str, action: str, entry_price: float, stop_loss:
         'htf_trend': htf_trend
     }
     logger.info(f"📌 Stored long-term signal: {symbol} {action} @ ${entry_price:.4f} (HTF: {htf_trend})")
+    
+    try:
+        send_signal_to_telegram({
+            'symbol': symbol,
+            'action': action,
+            'entry_price': entry_price,
+            'stop_loss': stop_loss,
+            'take_profit': take_profit,
+            'confidence': 90,
+            'htf_trend': htf_trend,
+            'prediction': f"New {action} signal detected"
+        })
+    except Exception as e:
+        logger.warning(f"Telegram alert failed: {e}")
 
 
 def get_predictive_signal(symbol: str, current_price: float, price_change_24h: float, 
@@ -376,6 +392,11 @@ def track_displayed_signal(symbol: str, action: str, current_price: float):
         BIAS_CHANGE_NOTIFICATIONS[:] = BIAS_CHANGE_NOTIFICATIONS[:5]
         SIGNAL_LAST_CHANGE[symbol] = now
         logger.info(f"⚠️ BIAS CHANGE: {symbol} {previous_signal} → {action} @ ${current_price}")
+        
+        try:
+            send_bias_change_to_telegram(symbol, previous_signal, action, current_price)
+        except Exception as e:
+            logger.warning(f"Telegram bias change alert failed: {e}")
     
     # Store current displayed signal
     DISPLAYED_SIGNALS[symbol] = action
