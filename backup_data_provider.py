@@ -20,15 +20,50 @@ class BackupDataProvider:
     def __init__(self):
         self.data_cache = {}
         self.cache_timestamp = None
-        self.cache_duration = 60  # 1 minute cache
+        self.cache_duration = 90  # 90 second cache to reduce API calls
         
-        # Backup data sources - prioritize live data
+        # Backup data sources - prioritize CryptoCompare (reliable in production)
+        # CoinGecko as fallback for broader coverage, despite rate limits
         self.backup_sources = [
+            self._get_cryptocompare_prices,
             self._get_coingecko_live,
-            self._get_coinbase_prices,
             self._get_binance_prices,
+            self._get_coinbase_prices,
             self._get_cached_prices
         ]
+    
+    def _get_cryptocompare_prices(self) -> Optional[Dict[str, Dict]]:
+        """Fetch from CryptoCompare API (reliable, no rate limits)"""
+        try:
+            # Comprehensive symbol list for all major tokens
+            symbols = 'BTC,ETH,SOL,LINK,AVAX,ADA,DOT,UNI,AAVE,BNB,XRP,DOGE,SHIB,LTC,MATIC,ATOM,NEAR,FIL,VET,ICP,XLM,TRX,ETC,BCH,ALGO,HBAR,FTM,SAND,MANA,GALA,APE,CHZ,ENJ,PEPE,FLOKI,ARB,OP,SUI,APT,SEI,INJ,RNDR,FET'
+            url = f"https://min-api.cryptocompare.com/data/pricemultifull?fsyms={symbols}&tsyms=USD"
+            
+            response = requests.get(url, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                raw_data = data.get('RAW', {})
+                
+                prices = {}
+                for symbol, coin_data in raw_data.items():
+                    if 'USD' in coin_data:
+                        usd_data = coin_data['USD']
+                        prices[symbol] = {
+                            'price': float(usd_data.get('PRICE', 0)),
+                            'change_24h': float(usd_data.get('CHANGEPCT24HOUR', 0)),
+                            'volume_24h': float(usd_data.get('VOLUME24HOUR', 0)),
+                            'source': 'cryptocompare'
+                        }
+                
+                if len(prices) >= 5:
+                    logger.info(f"CryptoCompare: fetched {len(prices)} tokens")
+                    return prices
+                    
+        except Exception as e:
+            logger.warning(f"CryptoCompare error: {e}")
+        
+        return None
     
     def _get_coingecko_live(self) -> Optional[Dict[str, Dict]]:
         """Get live data from CoinGecko API for comprehensive Bybit futures tokens"""
@@ -190,23 +225,17 @@ class BackupDataProvider:
             
             data = response.json()
             
-            # Symbol mapping
+            # Symbol mapping - comprehensive list for all major tokens
             binance_symbols = {
-                'BTCUSDT': 'BTC',
-                'ETHUSDT': 'ETH', 
-                'SOLUSDT': 'SOL',
-                'ADAUSDT': 'ADA',
-                'DOTUSDT': 'DOT',
-                'AVAXUSDT': 'AVAX',
-                'LINKUSDT': 'LINK',
-                'AXSUSDT': 'AXS',
-                'BNBUSDT': 'BNB',
-                'UNIUSDT': 'UNI',
-                'AAVEUSDT': 'AAVE',
-                'XRPUSDT': 'XRP',
-                'DOGEUSDT': 'DOGE',
-                'SHIBUSDT': 'SHIB',
-                'LTCUSDT': 'LTC'
+                'BTCUSDT': 'BTC', 'ETHUSDT': 'ETH', 'SOLUSDT': 'SOL', 'ADAUSDT': 'ADA',
+                'DOTUSDT': 'DOT', 'AVAXUSDT': 'AVAX', 'LINKUSDT': 'LINK', 'AXSUSDT': 'AXS',
+                'BNBUSDT': 'BNB', 'UNIUSDT': 'UNI', 'AAVEUSDT': 'AAVE', 'XRPUSDT': 'XRP',
+                'DOGEUSDT': 'DOGE', 'SHIBUSDT': 'SHIB', 'LTCUSDT': 'LTC', 'MATICUSDT': 'MATIC',
+                'ATOMUSDT': 'ATOM', 'NEARUSDT': 'NEAR', 'FILUSDT': 'FIL', 'VETUSDT': 'VET',
+                'ICPUSDT': 'ICP', 'XLMUSDT': 'XLM', 'TRXUSDT': 'TRX', 'ETCUSDT': 'ETC',
+                'BCHUSDT': 'BCH', 'ALGOUSDT': 'ALGO', 'HBARUSDT': 'HBAR', 'FTMUSDT': 'FTM',
+                'SANDUSDT': 'SAND', 'MANAUSDT': 'MANA', 'GALAUSDT': 'GALA', 'APEUSDT': 'APE',
+                'CHZUSDT': 'CHZ', 'ENJUSDT': 'ENJ', 'PEPEUSDT': 'PEPE', 'FLOKIUSDT': 'FLOKI'
             }
             
             prices = {}
