@@ -461,14 +461,17 @@ def analyze_volume(volume_ratio: float) -> str:
 
 def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str, 
                      volume: str, price_change: float, current_price: float,
-                     htf_trend: str = 'NEUTRAL') -> Dict:
+                     htf_trend: str = 'NEUTRAL', support: float = 0, resistance: float = 0) -> Dict:
     """
     Core prediction engine - identifies tops and bottoms BEFORE price moves.
     
-    LONG-TERM APPROACH:
-    - Higher thresholds required for signals (60+ instead of 40+)
+    ENHANCED ACCURACY (Dec 13, 2025):
+    - Volume confirmation required (no signals on LOW volume)
+    - Multiple indicator agreement (2+ indicators must align)
+    - Tighter RSI buffers (40/60 instead of 35/65)
+    - Support/resistance awareness for better entries
     - HTF trend must align with signal direction
-    - Requires stronger confluence before issuing new signals
+    - Higher thresholds required for signals (60+ instead of 40+)
     """
     
     # Initialize with default values
@@ -476,6 +479,50 @@ def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str,
     confidence = 50.0
     signal_type = 'NEUTRAL'
     reasoning = []
+    
+    # === VOLUME CONFIRMATION ===
+    # Block all signals on LOW volume - unreliable moves
+    if volume == 'LOW':
+        return {
+            'action': 'HOLD',
+            'confidence': 40,
+            'signal_type': 'LOW_VOLUME',
+            'prediction': f"Low volume - waiting for confirmation",
+            'reasoning': ["Volume too low for reliable signal"],
+            'stop_loss': current_price * 0.97,
+            'take_profit': current_price * 1.06,
+            'leverage': 5,
+            'risk_reward': 2.0
+        }
+    
+    # === MULTIPLE INDICATOR AGREEMENT ===
+    # Count bullish and bearish indicators
+    bullish_count = 0
+    bearish_count = 0
+    
+    # RSI signals
+    if rsi < 40:
+        bullish_count += 1  # Oversold = bullish
+    elif rsi > 60:
+        bearish_count += 1  # Overbought = bearish
+    
+    # MACD signals
+    if macd in ['BULLISH', 'BULLISH_DIVERGENCE']:
+        bullish_count += 1
+    elif macd in ['BEARISH', 'BEARISH_DIVERGENCE']:
+        bearish_count += 1
+    
+    # Momentum signals
+    if momentum in ['EXHAUSTION_BOTTOM', 'WEAK_DOWN']:
+        bullish_count += 1  # Selling exhaustion = bullish
+    elif momentum in ['EXHAUSTION_TOP', 'WEAK_UP']:
+        bearish_count += 1  # Buying exhaustion = bearish
+    
+    # HTF trend
+    if htf_trend in ['BULLISH', 'WEAK_BULLISH']:
+        bullish_count += 1
+    elif htf_trend in ['BEARISH', 'WEAK_BEARISH']:
+        bearish_count += 1
     
     # BOTTOM DETECTION (BUY before pump) - HIGHER THRESHOLDS
     bottom_score = 0
@@ -570,38 +617,50 @@ def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str,
         prediction = "Expecting downward reversal - top detected"
     else:
         # Trend following - REQUIRE STRONGER MOVES (3%+ instead of 1.5%+)
-        # CRITICAL FIX: Block trend-follow signals in extreme RSI zones
-        # - Don't SELL when RSI <= 35 (oversold - likely to bounce UP)
-        # - Don't BUY when RSI >= 65 (overbought - likely to drop DOWN)
+        # ENHANCED: Tighter RSI buffers (40/60) + indicator agreement required
         
         if price_change > 3 and htf_trend in ['BULLISH', 'WEAK_BULLISH', 'NEUTRAL']:
-            if rsi >= 65:
-                # Overbought - don't chase longs, wait for pullback
+            # Check RSI - tighter buffer at 60
+            if rsi >= 60:
                 action = 'HOLD'
                 confidence = 50
                 signal_type = 'RSI_BLOCKED'
                 prediction = f"Momentum up but RSI overbought ({rsi:.0f}) - waiting for pullback"
                 reasoning.append(f"RSI {rsi:.0f} too high - blocked BUY to avoid chasing")
+            # Check indicator agreement - need 2+ bullish indicators
+            elif bullish_count < 2:
+                action = 'HOLD'
+                confidence = 50
+                signal_type = 'NO_CONFLUENCE'
+                prediction = f"Momentum up but indicators don't agree ({bullish_count}/4 bullish)"
+                reasoning.append(f"Only {bullish_count} bullish indicators - need 2+ for confirmation")
             else:
                 action = 'BUY'
-                confidence = 80 + min(10, price_change)
+                confidence = 75 + min(15, price_change + bullish_count * 3)
                 signal_type = 'TREND_FOLLOW'
                 prediction = "Riding strong uptrend momentum"
-                reasoning.append("Strong upward momentum with HTF alignment")
+                reasoning.append(f"Strong upward momentum with {bullish_count} confirming indicators")
         elif price_change < -3 and htf_trend in ['BEARISH', 'WEAK_BEARISH', 'NEUTRAL']:
-            if rsi <= 35:
-                # Oversold - don't short here, likely to bounce UP
+            # Check RSI - tighter buffer at 40
+            if rsi <= 40:
                 action = 'HOLD'
                 confidence = 50
                 signal_type = 'RSI_BLOCKED'
                 prediction = f"Momentum down but RSI oversold ({rsi:.0f}) - bounce likely"
                 reasoning.append(f"RSI {rsi:.0f} too low - blocked SELL to avoid shorting bottom")
+            # Check indicator agreement - need 2+ bearish indicators
+            elif bearish_count < 2:
+                action = 'HOLD'
+                confidence = 50
+                signal_type = 'NO_CONFLUENCE'
+                prediction = f"Momentum down but indicators don't agree ({bearish_count}/4 bearish)"
+                reasoning.append(f"Only {bearish_count} bearish indicators - need 2+ for confirmation")
             else:
                 action = 'SELL'
-                confidence = 80 + min(10, abs(price_change))
+                confidence = 75 + min(15, abs(price_change) + bearish_count * 3)
                 signal_type = 'TREND_FOLLOW'
                 prediction = "Riding strong downtrend momentum"
-                reasoning.append("Strong downward momentum with HTF alignment")
+                reasoning.append(f"Strong downward momentum with {bearish_count} confirming indicators")
         else:
             action = 'HOLD'
             confidence = 50

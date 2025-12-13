@@ -49,11 +49,12 @@ The predictive signal system has been redesigned for long-term trading with pati
 - Removed time-based variation that caused rapid flip-flopping
 - Multiple confluences required before issuing new signals
 
-**RSI Safety Guards (Dec 13, 2025):**
-- SELL signals blocked when RSI <= 35 (oversold - likely to bounce UP)
-- BUY signals blocked when RSI >= 65 (overbought - likely to drop DOWN)
-- Trend-follow signals now respect RSI extremes to avoid chasing/shorting at wrong levels
-- This prevents issuing SELL at bottoms or BUY at tops
+**Enhanced Signal Accuracy (Dec 13, 2025):**
+- Volume confirmation required - no signals on LOW volume
+- Multiple indicator agreement - need 2+ indicators (RSI, MACD, momentum, HTF) to agree
+- Tighter RSI buffers - SELL blocked at RSI ≤ 40, BUY blocked at RSI ≥ 60
+- Prevents issuing SELL at bottoms or BUY at tops
+- Signals now require stronger confluence before triggering
 
 **Uniform Entry/TP/SL Structure (Dec 12, 2025):**
 - All signals now use `_build_bybit_settings()` helper for consistency
