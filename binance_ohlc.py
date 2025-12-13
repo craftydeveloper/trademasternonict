@@ -6,6 +6,8 @@ Fallback to Bybit public API if needed
 import logging
 import time
 import requests
+import os
+import json
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 import threading
@@ -16,12 +18,70 @@ CRYPTOCOMPARE_API_BASE = "https://min-api.cryptocompare.com/data/v2"
 BYBIT_API_BASE = "https://api.bybit.com/v5/market"
 
 CACHE_DURATION = {
-    '15m': 300,    # 5 min cache for 15m candles
-    '1h': 900,     # 15 min cache for 1h candles
-    '4h': 1800,    # 30 min cache for 4h candles
-    '1d': 3600,    # 1 hour cache for daily candles
-    '1w': 7200,    # 2 hour cache for weekly candles
+    '15m': 600,    # 10 min cache for 15m candles (increased for stability)
+    '1h': 1800,    # 30 min cache for 1h candles
+    '4h': 3600,    # 1 hour cache for 4h candles
+    '1d': 7200,    # 2 hour cache for daily candles
+    '1w': 14400,   # 4 hour cache for weekly candles
 }
+
+_last_api_call = {'time': 0}
+_api_call_lock = threading.Lock()
+API_RATE_LIMIT_MS = 200
+
+CACHE_BACKUP_DIR = '/tmp/ohlc_cache'
+
+def _ensure_cache_dir():
+    """Ensure cache backup directory exists"""
+    if not os.path.exists(CACHE_BACKUP_DIR):
+        os.makedirs(CACHE_BACKUP_DIR, exist_ok=True)
+
+
+def _save_cache_backup(cache_key: str, ohlc_data: List[Dict]):
+    """Save OHLC data to disk as backup"""
+    try:
+        _ensure_cache_dir()
+        filepath = os.path.join(CACHE_BACKUP_DIR, f"{cache_key}.json")
+        serializable_data = []
+        for candle in ohlc_data:
+            item = {}
+            for k, v in candle.items():
+                if isinstance(v, datetime):
+                    item[k] = v.isoformat()
+                else:
+                    item[k] = v
+            serializable_data.append(item)
+        with open(filepath, 'w') as f:
+            json.dump({'timestamp': time.time(), 'data': serializable_data}, f)
+    except Exception as e:
+        logger.debug(f"Could not save cache backup for {cache_key}: {e}")
+
+
+def _load_cache_backup(cache_key: str) -> Optional[List[Dict]]:
+    """Load OHLC data from disk backup"""
+    try:
+        filepath = os.path.join(CACHE_BACKUP_DIR, f"{cache_key}.json")
+        if not os.path.exists(filepath):
+            return None
+        with open(filepath, 'r') as f:
+            saved = json.load(f)
+        if time.time() - saved.get('timestamp', 0) > 86400:
+            return None
+        data = saved.get('data', [])
+        parsed = []
+        for candle in data:
+            item = {}
+            for k, v in candle.items():
+                if k in ('open_time', 'close_time') and isinstance(v, str):
+                    item[k] = datetime.fromisoformat(v)
+                else:
+                    item[k] = v
+            parsed.append(item)
+        return parsed if parsed else None
+    except Exception as e:
+        logger.debug(f"Could not load cache backup for {cache_key}: {e}")
+        return None
+
 
 CRYPTOCOMPARE_TF_MAP = {
     '15m': ('histominute', 15),
@@ -148,8 +208,19 @@ def fetch_bybit_ohlc(symbol: str, timeframe: str, limit: int = 50) -> Optional[L
         return None
 
 
+def _rate_limit_wait():
+    """Ensure we don't exceed API rate limits"""
+    with _api_call_lock:
+        now = time.time() * 1000
+        elapsed = now - _last_api_call['time']
+        if elapsed < API_RATE_LIMIT_MS:
+            time.sleep((API_RATE_LIMIT_MS - elapsed) / 1000)
+        _last_api_call['time'] = time.time() * 1000
+
+
 def get_cached_ohlc(symbol: str, interval: str, limit: int = 50) -> Optional[List[Dict]]:
-    """Get OHLC data with caching to prevent rate limiting"""
+    """Get OHLC data with caching to prevent rate limiting.
+    Prioritizes Bybit (since user trades there) with CryptoCompare as fallback."""
     cache_key = f"{symbol}_{interval}"
     cache_duration = CACHE_DURATION.get(interval, 600)
     
@@ -158,19 +229,38 @@ def get_cached_ohlc(symbol: str, interval: str, limit: int = 50) -> Optional[Lis
             cached = _ohlc_cache[cache_key]
             if time.time() - cached['timestamp'] < cache_duration:
                 return cached['data']
+            if time.time() - cached['timestamp'] < cache_duration * 3:
+                expired_data = cached['data']
+            else:
+                expired_data = None
+        else:
+            expired_data = None
     
-    ohlc = fetch_cryptocompare_ohlc(symbol, interval, limit)
+    _rate_limit_wait()
+    
+    ohlc = fetch_bybit_ohlc(symbol, interval, limit)
     
     if not ohlc or len(ohlc) < 10:
-        ohlc = fetch_bybit_ohlc(symbol, interval, limit)
+        _rate_limit_wait()
+        ohlc = fetch_cryptocompare_ohlc(symbol, interval, limit)
     
-    if ohlc:
+    if ohlc and len(ohlc) >= 10:
         with _cache_lock:
             _ohlc_cache[cache_key] = {
                 'data': ohlc,
                 'timestamp': time.time()
             }
+        _save_cache_backup(cache_key, ohlc)
         return ohlc
+    
+    if expired_data:
+        logger.info(f"Using expired cache for {symbol} {interval}")
+        return expired_data
+    
+    backup = _load_cache_backup(cache_key)
+    if backup:
+        logger.info(f"Using backup cache for {symbol} {interval}")
+        return backup
     
     return None
 
