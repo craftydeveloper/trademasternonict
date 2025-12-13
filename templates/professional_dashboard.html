@@ -842,7 +842,7 @@
                     const volatility = research.volatility || 'N/A';
                     
                     // Use the actual signal from backend - consistent with rest of bot
-                    const signal = coin.signal || 'HOLD';
+                    const signal = coin.action || 'HOLD';
                     const momentum = indicators.momentum || 'NEUTRAL';
                     
                     // Map signal to display class and icon
