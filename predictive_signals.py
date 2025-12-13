@@ -34,6 +34,48 @@ SIGNAL_VALIDITY_HOURS = 4  # Signals remain valid for 4 hours unless invalidated
 HTF_TRENDS = {}  # {symbol: {'trend': 'BULLISH/BEARISH/NEUTRAL', 'last_update': datetime, 'price_at_trend': float}}
 HTF_UPDATE_INTERVAL = 3600  # Update HTF analysis every 1 hour
 
+# Consecutive confirmation tracking - requires 2+ moves in same direction
+PRICE_DIRECTION_HISTORY = {}  # {symbol: [direction1, direction2, ...]} where direction is 'UP' or 'DOWN'
+MAX_DIRECTION_HISTORY = 3  # Keep last 3 price moves
+
+def track_price_direction(symbol: str, price_change: float) -> int:
+    """
+    Track consecutive price moves in same direction.
+    Returns count of consecutive moves in current direction.
+    """
+    global PRICE_DIRECTION_HISTORY
+    
+    if symbol not in PRICE_DIRECTION_HISTORY:
+        PRICE_DIRECTION_HISTORY[symbol] = []
+    
+    # Determine current direction
+    if price_change > 0.5:
+        current_dir = 'UP'
+    elif price_change < -0.5:
+        current_dir = 'DOWN'
+    else:
+        current_dir = 'FLAT'
+    
+    history = PRICE_DIRECTION_HISTORY[symbol]
+    
+    # Add to history
+    if len(history) >= MAX_DIRECTION_HISTORY:
+        history.pop(0)
+    history.append(current_dir)
+    
+    # Count consecutive moves in current direction
+    if current_dir == 'FLAT':
+        return 0
+    
+    count = 0
+    for d in reversed(history):
+        if d == current_dir:
+            count += 1
+        else:
+            break
+    
+    return count
+
 
 def clear_all_signal_state():
     """Clear all signal tracking state - call on server restart"""
@@ -480,6 +522,21 @@ def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str,
     signal_type = 'NEUTRAL'
     reasoning = []
     
+    # === VOLATILITY FILTER ===
+    # Block signals during extreme volatility (whipsaws) - not too strict
+    if abs(price_change) > 12:
+        return {
+            'action': 'HOLD',
+            'confidence': 35,
+            'signal_type': 'HIGH_VOLATILITY',
+            'prediction': f"Extreme volatility ({price_change:.1f}%) - waiting for stability",
+            'reasoning': [f"Price change {price_change:.1f}% too volatile for reliable entry"],
+            'stop_loss': current_price * 0.97,
+            'take_profit': current_price * 1.06,
+            'leverage': 5,
+            'risk_reward': 2.0
+        }
+    
     # === VOLUME CONFIRMATION ===
     # Block all signals on LOW volume - unreliable moves
     if volume == 'LOW':
@@ -494,6 +551,21 @@ def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str,
             'leverage': 5,
             'risk_reward': 2.0
         }
+    
+    # === CONSECUTIVE CONFIRMATION ===
+    # Track price direction for confirmation
+    consecutive_moves = track_price_direction(symbol, price_change)
+    
+    # === SUPPORT/RESISTANCE CHECK ===
+    # Calculate distance from support/resistance
+    near_support = False
+    near_resistance = False
+    if support > 0:
+        support_distance = ((current_price - support) / current_price) * 100
+        near_support = support_distance < 5  # Within 5% of support
+    if resistance > 0:
+        resistance_distance = ((resistance - current_price) / current_price) * 100
+        near_resistance = resistance_distance < 5  # Within 5% of resistance
     
     # === MULTIPLE INDICATOR AGREEMENT ===
     # Count bullish and bearish indicators
@@ -634,9 +706,18 @@ def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str,
                 signal_type = 'NO_CONFLUENCE'
                 prediction = f"Momentum up but indicators don't agree ({bullish_count}/4 bullish)"
                 reasoning.append(f"Only {bullish_count} bullish indicators - need 2+ for confirmation")
+            elif consecutive_moves < 2:
+                action = 'HOLD'
+                confidence = 50
+                signal_type = 'AWAITING_CONFIRMATION'
+                prediction = f"Waiting for consecutive confirmation ({consecutive_moves}/2 moves)"
+                reasoning.append(f"Need 2 consecutive up moves - have {consecutive_moves}")
             else:
                 action = 'BUY'
                 confidence = 75 + min(15, price_change + bullish_count * 3)
+                if near_support:
+                    confidence = min(98, confidence + 8)
+                    reasoning.append("Near support level - good entry")
                 signal_type = 'TREND_FOLLOW'
                 prediction = "Riding strong uptrend momentum"
                 reasoning.append(f"Strong upward momentum with {bullish_count} confirming indicators")
@@ -655,9 +736,18 @@ def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str,
                 signal_type = 'NO_CONFLUENCE'
                 prediction = f"Momentum down but indicators don't agree ({bearish_count}/4 bearish)"
                 reasoning.append(f"Only {bearish_count} bearish indicators - need 2+ for confirmation")
+            elif consecutive_moves < 2:
+                action = 'HOLD'
+                confidence = 50
+                signal_type = 'AWAITING_CONFIRMATION'
+                prediction = f"Waiting for consecutive confirmation ({consecutive_moves}/2 moves)"
+                reasoning.append(f"Need 2 consecutive down moves - have {consecutive_moves}")
             else:
                 action = 'SELL'
                 confidence = 75 + min(15, abs(price_change) + bearish_count * 3)
+                if near_resistance:
+                    confidence = min(98, confidence + 8)
+                    reasoning.append("Near resistance level - good entry")
                 signal_type = 'TREND_FOLLOW'
                 prediction = "Riding strong downtrend momentum"
                 reasoning.append(f"Strong downward momentum with {bearish_count} confirming indicators")

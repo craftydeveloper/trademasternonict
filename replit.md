@@ -56,6 +56,11 @@ The predictive signal system has been redesigned for long-term trading with pati
 - Prevents issuing SELL at bottoms or BUY at tops
 - Signals now require stronger confluence before triggering
 
+**Additional Safeguards (Dec 13, 2025):**
+- Price near support/resistance - BUY gets bonus near support, SELL gets bonus near resistance
+- Consecutive confirmation - requires 2+ price moves in same direction before signaling
+- Volatility filter - blocks signals when price change exceeds 12% (extreme volatility)
+
 **Uniform Entry/TP/SL Structure (Dec 12, 2025):**
 - All signals now use `_build_bybit_settings()` helper for consistency
 - Bybit settings always include: entryPrice, entryLow, entryHigh, stopLoss, takeProfit
