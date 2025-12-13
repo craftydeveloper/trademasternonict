@@ -670,6 +670,7 @@
                 this.refreshInterval = null;
                 this.lastSignalData = []; // Store last signals for modals
                 this.previousPrices = {}; // Track previous prices for animations
+                this.priorityPrices = {}; // Track priority market prices for live updates
                 this.init();
             }
 
@@ -826,12 +827,56 @@
                     (order[a.symbol] ?? 99) - (order[b.symbol] ?? 99)
                 );
                 
+                // Update prices inline with flash animation instead of replacing entire HTML
+                sortedCoins.forEach(coin => {
+                    const priceElement = document.querySelector(`[data-priority-price="${coin.symbol}"]`);
+                    const price = coin.entry_price || 0;
+                    const priceStr = price >= 1 ? `$${price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : `$${price.toFixed(6)}`;
+                    
+                    if (priceElement) {
+                        const previousPrice = this.priorityPrices[coin.symbol] || price;
+                        
+                        // Only update if price actually changed
+                        if (Math.abs(previousPrice - price) > 0.001) {
+                            priceElement.textContent = priceStr;
+                            
+                            // Add flash animation
+                            priceElement.classList.remove('price-up', 'price-down');
+                            void priceElement.offsetWidth; // Force reflow
+                            
+                            if (price > previousPrice) {
+                                priceElement.classList.add('price-up');
+                            } else {
+                                priceElement.classList.add('price-down');
+                            }
+                            
+                            // Remove animation class after it plays
+                            setTimeout(() => {
+                                priceElement.classList.remove('price-up', 'price-down');
+                            }, 500);
+                        }
+                        
+                        this.priorityPrices[coin.symbol] = price;
+                        return; // Element exists, just update price
+                    }
+                });
+                
+                // If any price element doesn't exist, rebuild the entire container
+                const needsFullRebuild = sortedCoins.some(coin => 
+                    !document.querySelector(`[data-priority-price="${coin.symbol}"]`)
+                );
+                
+                if (!needsFullRebuild) return; // All elements exist, we updated them inline
+                
                 let html = '';
                 sortedCoins.forEach(coin => {
                     const research = coin.enhanced_research || {};
                     const indicators = coin.indicators || {};
                     const price = coin.entry_price || 0;
                     const priceStr = price >= 1 ? `$${price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : `$${price.toFixed(6)}`;
+                    
+                    // Store initial price
+                    this.priorityPrices[coin.symbol] = price;
                     
                     const support = research.support_levels || [];
                     const resistance = research.resistance_levels || [];
@@ -886,7 +931,7 @@
                                 <div class="coin-header">
                                     <span class="coin-name"><i class="fas fa-star me-1" style="font-size: 0.8rem;"></i>${coin.symbol}</span>
                                     <div>
-                                        <span class="coin-price">${priceStr}</span>
+                                        <span class="coin-price" data-priority-price="${coin.symbol}">${priceStr}</span>
                                         <span class="signal-badge ${signalClass} ms-2">
                                             <i class="fas ${signalIcon} me-1"></i>${signal}
                                         </span>
