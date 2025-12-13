@@ -697,13 +697,13 @@ def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str,
         top_score -= 30  # Strong penalty - don't sell in uptrends
         reasoning.append(f"HTF BULLISH - signal blocked ({htf_trend})")
     
-    # Determine signal - HIGHER THRESHOLDS (60+ instead of 40+)
-    if bottom_score > top_score and bottom_score >= 60:
+    # Determine signal - BALANCED THRESHOLDS (50+ for more opportunities)
+    if bottom_score > top_score and bottom_score >= 50:
         action = 'BUY'
         confidence = min(98, 75 + bottom_score * 0.3)
         signal_type = 'BOTTOM_CALL'
         prediction = "Expecting upward reversal - bottom detected"
-    elif top_score > bottom_score and top_score >= 60:
+    elif top_score > bottom_score and top_score >= 50:
         action = 'SELL'
         confidence = min(98, 75 + top_score * 0.3)
         signal_type = 'TOP_CALL'
@@ -712,9 +712,9 @@ def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str,
         # Trend following - REQUIRE STRONGER MOVES (3%+ instead of 1.5%+)
         # ENHANCED: Tighter RSI buffers (40/60) + indicator agreement required
         
-        if price_change > 3 and htf_trend in ['BULLISH', 'WEAK_BULLISH', 'NEUTRAL']:
-            # Check RSI - tighter buffer at 60
-            if rsi >= 60:
+        if price_change > 2 and htf_trend in ['BULLISH', 'WEAK_BULLISH', 'NEUTRAL']:
+            # Check RSI - buffer at 65
+            if rsi >= 65:
                 action = 'HOLD'
                 confidence = 50
                 signal_type = 'RSI_BLOCKED'
@@ -727,12 +727,12 @@ def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str,
                 signal_type = 'NO_CONFLUENCE'
                 prediction = f"Momentum up but indicators don't agree ({bullish_count}/4 bullish)"
                 reasoning.append(f"Only {bullish_count} bullish indicators - need 2+ for confirmation")
-            elif consecutive_moves < 2:
+            elif consecutive_moves < 1:
                 action = 'HOLD'
                 confidence = 50
                 signal_type = 'AWAITING_CONFIRMATION'
-                prediction = f"Waiting for consecutive confirmation ({consecutive_moves}/2 moves)"
-                reasoning.append(f"Need 2 consecutive up moves - have {consecutive_moves}")
+                prediction = f"Waiting for consecutive confirmation ({consecutive_moves}/1 moves)"
+                reasoning.append(f"Need 1 consecutive up move - have {consecutive_moves}")
             else:
                 action = 'BUY'
                 confidence = 75 + min(15, price_change + bullish_count * 3)
@@ -742,9 +742,9 @@ def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str,
                 signal_type = 'TREND_FOLLOW'
                 prediction = "Riding strong uptrend momentum"
                 reasoning.append(f"Strong upward momentum with {bullish_count} confirming indicators")
-        elif price_change < -3 and htf_trend in ['BEARISH', 'WEAK_BEARISH', 'NEUTRAL']:
-            # Check RSI - tighter buffer at 40
-            if rsi <= 40:
+        elif price_change < -2 and htf_trend in ['BEARISH', 'WEAK_BEARISH', 'NEUTRAL']:
+            # Check RSI - buffer at 35
+            if rsi <= 35:
                 action = 'HOLD'
                 confidence = 50
                 signal_type = 'RSI_BLOCKED'
@@ -757,12 +757,12 @@ def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str,
                 signal_type = 'NO_CONFLUENCE'
                 prediction = f"Momentum down but indicators don't agree ({bearish_count}/4 bearish)"
                 reasoning.append(f"Only {bearish_count} bearish indicators - need 2+ for confirmation")
-            elif consecutive_moves < 2:
+            elif consecutive_moves < 1:
                 action = 'HOLD'
                 confidence = 50
                 signal_type = 'AWAITING_CONFIRMATION'
-                prediction = f"Waiting for consecutive confirmation ({consecutive_moves}/2 moves)"
-                reasoning.append(f"Need 2 consecutive down moves - have {consecutive_moves}")
+                prediction = f"Waiting for consecutive confirmation ({consecutive_moves}/1 moves)"
+                reasoning.append(f"Need 1 consecutive down move - have {consecutive_moves}")
             else:
                 action = 'SELL'
                 confidence = 75 + min(15, abs(price_change) + bearish_count * 3)
