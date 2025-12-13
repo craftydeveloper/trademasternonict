@@ -685,10 +685,10 @@
                     this.loadMarketInsights();
                 }, 500);
                 
-                // Refresh signals every 15 seconds for stability
+                // Refresh signals every 1 second for real-time updates
                 setInterval(() => {
                     this.loadRecommendations();
-                }, 15000);
+                }, 1000);
                 
                 // Refresh market sentiment and volatility every 20 minutes
                 setInterval(() => {
