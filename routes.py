@@ -1315,6 +1315,7 @@ def get_predictive_trading_signals():
                 signal['can_trade'] = False
                 signal['trade_status'] = reason
                 signal['is_priority'] = is_priority
+                signal['current_price'] = current_price  # Live price for all signals
                 # Add enhanced research for priority coins
                 if is_priority:
                     research = get_priority_coin_research(symbol, current_price, price_change)
@@ -1340,6 +1341,7 @@ def get_predictive_trading_signals():
             signal['can_trade'] = True
             signal['trade_status'] = 'Ready to trade'
             signal['is_priority'] = is_priority
+            signal['current_price'] = current_price  # Live price for all signals
             
             # Add enhanced research for priority coins
             if is_priority:

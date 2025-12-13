@@ -1142,7 +1142,8 @@
                 for (let i = 0; i < trades.length; i++) {
                     const signal = trades[i];
                     const symbolName = signal.symbol;
-                    const entryPrice = signal.entry_price < 1 ? signal.entry_price.toFixed(6) : signal.entry_price.toFixed(2);
+                    const displayPrice = signal.current_price || signal.entry_price;
+                    const entryPrice = displayPrice < 1 ? displayPrice.toFixed(6) : displayPrice.toFixed(2);
                     const takeProfit = signal.take_profit < 1 ? signal.take_profit.toFixed(6) : signal.take_profit.toFixed(2);
                     const actionBadge = signal.action === 'BUY' ? 'bg-success' : 'bg-danger';
                     
@@ -1172,7 +1173,7 @@
                     html += '<span class="badge ' + signalTypeClass + '">' + signalTypeBadge + '</span>';
                     html += '<span class="primary-badge">TOP ' + (i + 1) + '</span>';
                     html += '</div>';
-                    html += '<div class="price-text" data-symbol="' + symbolName + '" data-price="' + signal.entry_price + '">$' + entryPrice + '</div>';
+                    html += '<div class="price-text" data-symbol="' + symbolName + '" data-price="' + displayPrice + '">$' + entryPrice + '</div>';
                     html += '</div>';
                     html += '<div class="signal-body">';
                     if (prediction) {
@@ -1229,16 +1230,27 @@
                         const takeProfitElements = card.querySelectorAll('.take-profit');
                         const qtyElements = card.querySelectorAll('.qty-value');
                         
-                        const entryPrice = trade.entry_price < 1 ? trade.entry_price.toFixed(6) : trade.entry_price.toFixed(2);
+                        const displayPrice = trade.current_price || trade.entry_price;
+                        const priceStr = displayPrice < 1 ? displayPrice.toFixed(6) : displayPrice.toFixed(2);
                         const takeProfit = trade.take_profit < 1 ? trade.take_profit.toFixed(6) : trade.take_profit.toFixed(2);
                         
                         if (priceElement) {
-                            priceElement.textContent = `$${entryPrice}`;
-                            priceElement.setAttribute('data-price', trade.entry_price);
+                            const oldPrice = parseFloat(priceElement.getAttribute('data-price')) || displayPrice;
+                            
+                            // Add flash animation if price changed
+                            if (Math.abs(oldPrice - displayPrice) > 0.001) {
+                                priceElement.classList.remove('price-up', 'price-down');
+                                void priceElement.offsetWidth;
+                                priceElement.classList.add(displayPrice > oldPrice ? 'price-up' : 'price-down');
+                                setTimeout(() => priceElement.classList.remove('price-up', 'price-down'), 500);
+                            }
+                            
+                            priceElement.textContent = `$${priceStr}`;
+                            priceElement.setAttribute('data-price', displayPrice);
                         }
                         
                         entryPriceElements.forEach(el => {
-                            el.textContent = `$${entryPrice}`;
+                            el.textContent = `$${priceStr}`;
                         });
                         
                         takeProfitElements.forEach(el => {
@@ -1264,7 +1276,8 @@
                 for (let i = 0; i < trades.length; i++) {
                     const signal = trades[i];
                     const symbolName = signal.symbol;
-                    const entryPrice = signal.entry_price < 1 ? signal.entry_price.toFixed(6) : signal.entry_price.toFixed(2);
+                    const displayPrice = signal.current_price || signal.entry_price;
+                    const entryPrice = displayPrice < 1 ? displayPrice.toFixed(6) : displayPrice.toFixed(2);
                     const takeProfit = signal.take_profit < 1 ? signal.take_profit.toFixed(6) : signal.take_profit.toFixed(2);
                     const actionBadge = signal.action === 'BUY' ? 'bg-success' : 'bg-danger';
                     
@@ -1285,7 +1298,7 @@
                     html += signalTypeBadge;
                     html += '<span class="secondary-badge ms-1">ALT</span>';
                     html += '</div>';
-                    html += '<div class="price-text" data-symbol="' + symbolName + '" data-price="' + signal.entry_price + '">$' + entryPrice + '</div>';
+                    html += '<div class="price-text" data-symbol="' + symbolName + '" data-price="' + displayPrice + '">$' + entryPrice + '</div>';
                     html += '</div>';
                     html += '<div class="signal-body">';
                     if (signal.prediction) {
