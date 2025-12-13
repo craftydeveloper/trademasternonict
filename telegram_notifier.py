@@ -14,17 +14,6 @@ logger = logging.getLogger(__name__)
 SENT_SIGNALS_FILE = '/tmp/telegram_sent_signals.json'
 TELEGRAM_ENABLED_FILE = '/tmp/telegram_enabled.json'
 
-def load_telegram_enabled() -> bool:
-    """Load telegram enabled state from file"""
-    try:
-        if os.path.exists(TELEGRAM_ENABLED_FILE):
-            with open(TELEGRAM_ENABLED_FILE, 'r') as f:
-                data = json.load(f)
-                return data.get('enabled', True)
-    except Exception:
-        pass
-    return True
-
 def save_telegram_enabled(enabled: bool):
     """Save telegram enabled state to file"""
     try:
@@ -32,6 +21,21 @@ def save_telegram_enabled(enabled: bool):
             json.dump({'enabled': enabled}, f)
     except Exception as e:
         logger.warning(f"Could not save telegram state: {e}")
+
+def load_telegram_enabled() -> bool:
+    """Load telegram enabled state from file - defaults to OFF"""
+    try:
+        if os.path.exists(TELEGRAM_ENABLED_FILE):
+            with open(TELEGRAM_ENABLED_FILE, 'r') as f:
+                data = json.load(f)
+                return data.get('enabled', False)
+        else:
+            # Create file with default OFF state
+            save_telegram_enabled(False)
+            return False
+    except Exception:
+        pass
+    return False
 
 def load_sent_signals() -> Dict:
     """Load previously sent signals from file"""
