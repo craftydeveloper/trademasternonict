@@ -71,19 +71,9 @@ The predictive signal system has been redesigned for long-term trading with pati
 
 A dedicated Priority Markets section displays deep analysis for BTC, ETH, and SOL:
 
-**Analysis-Only Mode (Updated Dec 13, 2025):**
-Priority Markets focuses on predictive analysis rather than trade signals to avoid flip-flopping signals:
-- No BUY/SELL/HOLD trade signals - pure analysis only
-- Early warning indicators detect moves BEFORE they happen:
-  - PUMP SETUP: RSI ≤ 30 (oversold, bounce coming)
-  - DUMP RISK: RSI ≥ 70 (overbought, pullback coming)
-  - REVERSAL WATCH: RSI ≤ 40 with down momentum (potential bottom)
-  - PEAK WATCH: RSI ≥ 60 with up momentum (potential top)
-  - NEUTRAL: Normal market conditions
-
 **Display Features:**
 - Golden-bordered cards with priority star icons
-- Real-time prices with early warning badges
+- Real-time BUY/SELL/HOLD signals - uniform with rest of bot
 - Support and resistance levels
 - Multi-timeframe RSI (4H / 1D)
 - Momentum direction (Strong Up/Up/Down/Strong Down/Flat)

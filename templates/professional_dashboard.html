@@ -841,35 +841,23 @@
                     const outlook = research.outlook || 'Analyzing...';
                     const volatility = research.volatility || 'N/A';
                     
-                    // Predictive analysis - detect early reversal signals
-                    const rsi4h = rsi['4h'] || 50;
+                    // Use the actual signal from backend - consistent with rest of bot
+                    const signal = coin.signal || 'HOLD';
                     const momentum = indicators.momentum || 'NEUTRAL';
                     
-                    // Early warning detection
-                    let earlySignal = '';
-                    let earlySignalClass = '';
-                    let earlySignalIcon = '';
+                    // Map signal to display class and icon
+                    let signalClass = '';
+                    let signalIcon = '';
                     
-                    if (rsi4h <= 30) {
-                        earlySignal = 'PUMP SETUP';
-                        earlySignalClass = 'buy';
-                        earlySignalIcon = 'fa-arrow-trend-up';
-                    } else if (rsi4h >= 70) {
-                        earlySignal = 'DUMP RISK';
-                        earlySignalClass = 'sell';
-                        earlySignalIcon = 'fa-arrow-trend-down';
-                    } else if (rsi4h <= 40 && (momentum === 'STRONG_DOWN' || momentum === 'DOWN')) {
-                        earlySignal = 'REVERSAL WATCH';
-                        earlySignalClass = 'hold';
-                        earlySignalIcon = 'fa-rotate';
-                    } else if (rsi4h >= 60 && (momentum === 'STRONG_UP' || momentum === 'UP')) {
-                        earlySignal = 'PEAK WATCH';
-                        earlySignalClass = 'hold';
-                        earlySignalIcon = 'fa-rotate';
+                    if (signal === 'BUY') {
+                        signalClass = 'buy';
+                        signalIcon = 'fa-arrow-trend-up';
+                    } else if (signal === 'SELL') {
+                        signalClass = 'sell';
+                        signalIcon = 'fa-arrow-trend-down';
                     } else {
-                        earlySignal = 'NEUTRAL';
-                        earlySignalClass = 'neutral';
-                        earlySignalIcon = 'fa-minus';
+                        signalClass = 'hold';
+                        signalIcon = 'fa-pause';
                     }
                     
                     // Momentum direction indicator
@@ -899,8 +887,8 @@
                                     <span class="coin-name"><i class="fas fa-star me-1" style="font-size: 0.8rem;"></i>${coin.symbol}</span>
                                     <div>
                                         <span class="coin-price">${priceStr}</span>
-                                        <span class="signal-badge ${earlySignalClass} ms-2" title="Early detection signal">
-                                            <i class="fas ${earlySignalIcon} me-1"></i>${earlySignal}
+                                        <span class="signal-badge ${signalClass} ms-2">
+                                            <i class="fas ${signalIcon} me-1"></i>${signal}
                                         </span>
                                     </div>
                                 </div>
