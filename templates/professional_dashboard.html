@@ -830,7 +830,7 @@
                 // Update prices inline with flash animation instead of replacing entire HTML
                 sortedCoins.forEach(coin => {
                     const priceElement = document.querySelector(`[data-priority-price="${coin.symbol}"]`);
-                    const price = coin.entry_price || 0;
+                    const price = coin.current_price || coin.entry_price || 0;
                     const priceStr = price >= 1 ? `$${price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : `$${price.toFixed(6)}`;
                     
                     if (priceElement) {
@@ -872,7 +872,7 @@
                 sortedCoins.forEach(coin => {
                     const research = coin.enhanced_research || {};
                     const indicators = coin.indicators || {};
-                    const price = coin.entry_price || 0;
+                    const price = coin.current_price || coin.entry_price || 0;
                     const priceStr = price >= 1 ? `$${price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : `$${price.toFixed(6)}`;
                     
                     // Store initial price

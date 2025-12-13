@@ -1319,6 +1319,7 @@ def get_predictive_trading_signals():
                 if is_priority:
                     research = get_priority_coin_research(symbol, current_price, price_change)
                     signal.update(research)
+                    signal['current_price'] = current_price  # Live price for display
                 # Always include priority coins, otherwise only include non-HOLD
                 if is_priority or signal['action'] != 'HOLD':
                     if is_priority:
@@ -1344,6 +1345,7 @@ def get_predictive_trading_signals():
             if is_priority:
                 research = get_priority_coin_research(symbol, current_price, price_change)
                 signal.update(research)
+                signal['current_price'] = current_price  # Live price for display
             
             # Always include priority coins, otherwise only include actionable signals
             if is_priority:
