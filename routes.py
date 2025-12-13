@@ -1421,7 +1421,7 @@ def get_telegram_status():
 def toggle_telegram():
     """Toggle Telegram notifications on/off"""
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or {}
         enabled = data.get('enabled')
         
         if enabled is None:
