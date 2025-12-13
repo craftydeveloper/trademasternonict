@@ -89,6 +89,7 @@ A dedicated Priority Markets section displays deep analysis for BTC, ETH, and SO
 - Backend: PRIORITY_COINS = ['BTC', 'ETH', 'SOL'] in routes.py and predictive_signals.py
 - API: /api/predictive-signals returns priority_coins array with enhanced_research data
 - Frontend: displayPriorityMarkets() function renders priority cards in professional_dashboard.html
+- **Bug fix (Dec 13, 2025)**: Fixed signal display to use `coin.action` instead of `coin.signal` for consistency
 
 ## Telegram Integration (Dec 2025)
 
