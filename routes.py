@@ -29,6 +29,7 @@ from predictive_signals import (
     clear_bias_notifications,
     clear_all_signal_state
 )
+from telegram_notifier import notifier as telegram_notifier
 
 # Defer signal state clearing to first request (not startup)
 _startup_initialized = False
@@ -1402,4 +1403,37 @@ def complete_trade_endpoint(symbol):
         
     except Exception as e:
         logger.error(f"Error completing trade: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/telegram/status')
+def get_telegram_status():
+    """Get Telegram notification status"""
+    try:
+        return jsonify({
+            'success': True,
+            **telegram_notifier.get_status()
+        })
+    except Exception as e:
+        logger.error(f"Error getting telegram status: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/telegram/toggle', methods=['POST'])
+def toggle_telegram():
+    """Toggle Telegram notifications on/off"""
+    try:
+        data = request.get_json() or {}
+        enabled = data.get('enabled')
+        
+        if enabled is None:
+            enabled = not telegram_notifier.user_enabled
+        
+        telegram_notifier.set_enabled(enabled)
+        
+        return jsonify({
+            'success': True,
+            'enabled': telegram_notifier.user_enabled,
+            'message': f"Telegram notifications {'enabled' if enabled else 'disabled'}"
+        })
+    except Exception as e:
+        logger.error(f"Error toggling telegram: {e}")
         return jsonify({'success': False, 'error': str(e)})

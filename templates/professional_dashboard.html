@@ -363,12 +363,36 @@
     <!-- Toast Container -->
     <div id="toast-container" class="toast-container"></div>
     
+    <style>
+        #telegramToggle {
+            background: rgba(41, 45, 62, 0.8);
+            border: 1px solid #30363d;
+            color: #8b949e;
+            font-size: 0.75rem;
+            padding: 4px 8px;
+        }
+        #telegramToggle.active {
+            background: rgba(0, 136, 204, 0.2);
+            border-color: #0088cc;
+            color: #0088cc;
+        }
+        #telegramToggle:hover {
+            background: rgba(0, 136, 204, 0.3);
+        }
+    </style>
     <nav class="navbar navbar-expand-lg">
         <div class="container">
-            <div class="w-100 d-flex justify-content-center">
+            <div class="w-100 d-flex justify-content-between align-items-center">
+                <div style="width: 100px;"></div>
                 <a class="navbar-brand" href="/" style="margin: 0;">
                     TradePro
                 </a>
+                <div style="width: 100px; text-align: right;">
+                    <button id="telegramToggle" class="btn btn-sm" onclick="toggleTelegram()" title="Toggle Telegram Notifications">
+                        <i class="fab fa-telegram"></i>
+                        <span id="telegramStatus">...</span>
+                    </button>
+                </div>
             </div>
         </div>
     </nav>
@@ -1585,6 +1609,55 @@
         window.addEventListener('beforeunload', () => {
             dashboard.stopAutoRefresh();
         });
+        
+        // Telegram toggle functions
+        async function loadTelegramStatus() {
+            try {
+                const response = await fetch('/api/telegram/status');
+                const data = await response.json();
+                updateTelegramButton(data.enabled, data.configured);
+            } catch (e) {
+                console.error('Failed to load telegram status:', e);
+            }
+        }
+        
+        function updateTelegramButton(enabled, configured) {
+            const btn = document.getElementById('telegramToggle');
+            const status = document.getElementById('telegramStatus');
+            if (!btn || !status) return;
+            
+            if (!configured) {
+                status.textContent = 'N/A';
+                btn.disabled = true;
+                btn.title = 'Telegram not configured';
+            } else if (enabled) {
+                status.textContent = 'ON';
+                btn.classList.add('active');
+                btn.title = 'Click to disable Telegram notifications';
+            } else {
+                status.textContent = 'OFF';
+                btn.classList.remove('active');
+                btn.title = 'Click to enable Telegram notifications';
+            }
+        }
+        
+        async function toggleTelegram() {
+            try {
+                const response = await fetch('/api/telegram/toggle', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+                const data = await response.json();
+                if (data.success) {
+                    updateTelegramButton(data.enabled, true);
+                    showToast(data.message, data.enabled ? 'success' : 'info');
+                }
+            } catch (e) {
+                console.error('Failed to toggle telegram:', e);
+            }
+        }
+        
+        loadTelegramStatus();
     </script>
 
     <!-- Footer Disclaimer -->

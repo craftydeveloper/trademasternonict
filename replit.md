@@ -67,6 +67,22 @@ The predictive signal system has been redesigned for long-term trading with pati
 - Prices formatted consistently: 6 decimals for <$1 tokens, 4 decimals for >=$1 tokens
 - View Setup modal displays all fields correctly for both new signals and active positions
 
+## Telegram Integration (Dec 2025)
+
+**Toggle Control:**
+- Toggle button in navbar (top-right) to enable/disable notifications
+- State persists in /tmp/telegram_enabled.json
+- API endpoints: GET /api/telegram/status, POST /api/telegram/toggle
+
+**Anti-Spam Protection:**
+- File-based tracking persists across restarts (/tmp/telegram_sent_signals.json)
+- 2-hour cooldown between same signal alerts for same coin
+- Skips duplicate notifications with logging
+
+**Notification Types:**
+- New signal alerts (BUY/SELL with entry, SL, TP)
+- Bias change alerts (when signal direction changes)
+
 ## External Dependencies
 
 - **APIs**:

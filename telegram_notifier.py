@@ -12,6 +12,26 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 SENT_SIGNALS_FILE = '/tmp/telegram_sent_signals.json'
+TELEGRAM_ENABLED_FILE = '/tmp/telegram_enabled.json'
+
+def load_telegram_enabled() -> bool:
+    """Load telegram enabled state from file"""
+    try:
+        if os.path.exists(TELEGRAM_ENABLED_FILE):
+            with open(TELEGRAM_ENABLED_FILE, 'r') as f:
+                data = json.load(f)
+                return data.get('enabled', True)
+    except Exception:
+        pass
+    return True
+
+def save_telegram_enabled(enabled: bool):
+    """Save telegram enabled state to file"""
+    try:
+        with open(TELEGRAM_ENABLED_FILE, 'w') as f:
+            json.dump({'enabled': enabled}, f)
+    except Exception as e:
+        logger.warning(f"Could not save telegram state: {e}")
 
 def load_sent_signals() -> Dict:
     """Load previously sent signals from file"""
@@ -38,6 +58,7 @@ class TelegramNotifier:
         self.bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
         self.chat_id = os.environ.get('TELEGRAM_CHAT_ID')
         self.last_signals = load_sent_signals()
+        self.user_enabled = load_telegram_enabled()
         
         if self.bot_token and self.chat_id:
             logger.info("Telegram notifications enabled")
@@ -45,8 +66,26 @@ class TelegramNotifier:
             logger.info("Telegram notifications disabled - missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID")
     
     def is_enabled(self) -> bool:
-        """Check if Telegram is configured"""
+        """Check if Telegram is configured AND user has it enabled"""
+        return bool(self.bot_token and self.chat_id and self.user_enabled)
+    
+    def is_configured(self) -> bool:
+        """Check if Telegram credentials are configured"""
         return bool(self.bot_token and self.chat_id)
+    
+    def set_enabled(self, enabled: bool):
+        """Enable or disable Telegram notifications"""
+        self.user_enabled = enabled
+        save_telegram_enabled(enabled)
+        logger.info(f"Telegram notifications {'enabled' if enabled else 'disabled'} by user")
+    
+    def get_status(self) -> Dict:
+        """Get current Telegram status"""
+        return {
+            'configured': self.is_configured(),
+            'enabled': self.user_enabled,
+            'active': self.is_enabled()
+        }
     
     def send_message(self, message: str, parse_mode: str = 'HTML') -> bool:
         """Send a message to Telegram channel"""
