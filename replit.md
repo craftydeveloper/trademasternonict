@@ -36,6 +36,10 @@ The predictive signal system has been redesigned for long-term trading with pati
 - Signals persist for up to 4 hours unless invalidated
 - Minimum 2-hour debounce between bias changes for the same token
 - Signals only change when: Stop Loss hit, Take Profit hit, HTF trend reverses, or signal expires
+- **File-based persistence (Dec 13, 2025)**: ACTIVE_SIGNALS saved to /tmp/active_signals.json
+  - Signals survive server restarts and load automatically on startup
+  - Expired signals (>4h old) are filtered out on load
+  - Ensures consistency between development and production environments
 
 **Higher Timeframe (HTF) Trend Tracking:**
 - HTF trend updates hourly based on 24h price action

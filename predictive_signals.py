@@ -4,11 +4,15 @@ Uses technical analysis to predict reversals and call entries early
 """
 import logging
 import time
+import json
+import os
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 import hashlib
 
 from telegram_notifier import send_signal_to_telegram, send_bias_change_to_telegram
+
+SIGNALS_PERSISTENCE_FILE = '/tmp/active_signals.json'
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +35,68 @@ DEBOUNCE_SECONDS = 7200  # 2 HOURS minimum between bias changes for same token
 # Long-term signal persistence - keep signals until invalidated
 ACTIVE_SIGNALS = {}  # Stores: {symbol: {'action': 'BUY/SELL', 'entry_price': float, 'stop_loss': float, 'timestamp': datetime, 'htf_trend': str}}
 SIGNAL_VALIDITY_HOURS = 4  # Signals remain valid for 4 hours unless invalidated
+
+
+def save_signals_to_file():
+    """Save ACTIVE_SIGNALS to file for persistence across restarts."""
+    try:
+        data = {}
+        for symbol, signal in ACTIVE_SIGNALS.items():
+            data[symbol] = {
+                'action': signal['action'],
+                'entry_price': signal['entry_price'],
+                'stop_loss': signal['stop_loss'],
+                'take_profit': signal.get('take_profit', 0),
+                'timestamp': signal['timestamp'].isoformat() if isinstance(signal['timestamp'], datetime) else signal['timestamp'],
+                'htf_trend': signal.get('htf_trend', 'NEUTRAL')
+            }
+        with open(SIGNALS_PERSISTENCE_FILE, 'w') as f:
+            json.dump(data, f, indent=2)
+        logger.info(f"💾 Saved {len(data)} active signals to file")
+    except Exception as e:
+        logger.warning(f"Failed to save signals to file: {e}")
+
+
+def load_signals_from_file():
+    """Load ACTIVE_SIGNALS from file on startup."""
+    global ACTIVE_SIGNALS
+    try:
+        if os.path.exists(SIGNALS_PERSISTENCE_FILE):
+            with open(SIGNALS_PERSISTENCE_FILE, 'r') as f:
+                data = json.load(f)
+            
+            loaded_count = 0
+            skipped_count = 0
+            for symbol, signal in data.items():
+                try:
+                    timestamp = datetime.fromisoformat(signal['timestamp'])
+                    hours_old = (datetime.now() - timestamp).total_seconds() / 3600
+                    
+                    if hours_old < SIGNAL_VALIDITY_HOURS:
+                        ACTIVE_SIGNALS[symbol] = {
+                            'action': signal['action'],
+                            'entry_price': signal['entry_price'],
+                            'stop_loss': signal['stop_loss'],
+                            'take_profit': signal.get('take_profit', 0),
+                            'timestamp': timestamp,
+                            'htf_trend': signal.get('htf_trend', 'NEUTRAL')
+                        }
+                        loaded_count += 1
+                        logger.info(f"📂 Restored signal: {symbol} {signal['action']} (active {hours_old:.1f}h)")
+                    else:
+                        logger.info(f"⏰ Signal expired: {symbol} was {hours_old:.1f}h old")
+                except Exception as record_error:
+                    skipped_count += 1
+                    logger.warning(f"⚠️ Skipping corrupted signal {symbol}: {record_error}")
+            
+            if skipped_count > 0:
+                logger.warning(f"Skipped {skipped_count} corrupted signal records")
+            logger.info(f"📂 Loaded {loaded_count} valid signals from file")
+    except Exception as e:
+        logger.warning(f"Failed to load signals from file: {e}")
+
+
+load_signals_from_file()
 
 # Higher Timeframe (HTF) trend tracking
 HTF_TRENDS = {}  # {symbol: {'trend': 'BULLISH/BEARISH/NEUTRAL', 'last_update': datetime, 'price_at_trend': float}}
@@ -150,15 +216,16 @@ def track_price_direction(symbol: str, price_change: float) -> int:
 
 
 def clear_all_signal_state():
-    """Clear all signal tracking state - call on server restart"""
-    global DISPLAYED_SIGNALS, BIAS_CHANGE_NOTIFICATIONS, SIGNAL_LAST_CHANGE, PREVIOUS_SIGNALS, ACTIVE_SIGNALS, HTF_TRENDS
+    """Clear transient signal tracking state - preserves persisted ACTIVE_SIGNALS"""
+    global DISPLAYED_SIGNALS, BIAS_CHANGE_NOTIFICATIONS, SIGNAL_LAST_CHANGE, PREVIOUS_SIGNALS, HTF_TRENDS
     DISPLAYED_SIGNALS.clear()
     BIAS_CHANGE_NOTIFICATIONS.clear()
     SIGNAL_LAST_CHANGE.clear()
     PREVIOUS_SIGNALS.clear()
-    ACTIVE_SIGNALS.clear()
     HTF_TRENDS.clear()
-    logger.info("Cleared all signal tracking state")
+    # NOTE: ACTIVE_SIGNALS is NOT cleared - it's loaded from file on startup
+    # and should persist across requests
+    logger.info(f"Cleared transient signal state (preserved {len(ACTIVE_SIGNALS)} active signals)")
 
 
 def _build_bybit_settings(symbol: str, action: str, entry_price: float, 
@@ -309,6 +376,8 @@ def store_active_signal(symbol: str, action: str, entry_price: float, stop_loss:
     }
     logger.info(f"📌 Stored long-term signal: {symbol} {action} @ ${entry_price:.4f} (HTF: {htf_trend})")
     
+    save_signals_to_file()
+    
     try:
         send_signal_to_telegram({
             'symbol': symbol,
@@ -388,6 +457,7 @@ def get_predictive_signal(symbol: str, current_price: float, price_change_24h: f
         # Remove the old signal
         if symbol in ACTIVE_SIGNALS:
             del ACTIVE_SIGNALS[symbol]
+            save_signals_to_file()
     
     # Technical indicator simulation based on market conditions
     rsi = calculate_rsi_prediction(symbol, price_change_24h)
