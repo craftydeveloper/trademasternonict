@@ -570,18 +570,38 @@ def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str,
         prediction = "Expecting downward reversal - top detected"
     else:
         # Trend following - REQUIRE STRONGER MOVES (3%+ instead of 1.5%+)
+        # CRITICAL FIX: Block trend-follow signals in extreme RSI zones
+        # - Don't SELL when RSI <= 35 (oversold - likely to bounce UP)
+        # - Don't BUY when RSI >= 65 (overbought - likely to drop DOWN)
+        
         if price_change > 3 and htf_trend in ['BULLISH', 'WEAK_BULLISH', 'NEUTRAL']:
-            action = 'BUY'
-            confidence = 80 + min(10, price_change)
-            signal_type = 'TREND_FOLLOW'
-            prediction = "Riding strong uptrend momentum"
-            reasoning.append("Strong upward momentum with HTF alignment")
+            if rsi >= 65:
+                # Overbought - don't chase longs, wait for pullback
+                action = 'HOLD'
+                confidence = 50
+                signal_type = 'RSI_BLOCKED'
+                prediction = f"Momentum up but RSI overbought ({rsi:.0f}) - waiting for pullback"
+                reasoning.append(f"RSI {rsi:.0f} too high - blocked BUY to avoid chasing")
+            else:
+                action = 'BUY'
+                confidence = 80 + min(10, price_change)
+                signal_type = 'TREND_FOLLOW'
+                prediction = "Riding strong uptrend momentum"
+                reasoning.append("Strong upward momentum with HTF alignment")
         elif price_change < -3 and htf_trend in ['BEARISH', 'WEAK_BEARISH', 'NEUTRAL']:
-            action = 'SELL'
-            confidence = 80 + min(10, abs(price_change))
-            signal_type = 'TREND_FOLLOW'
-            prediction = "Riding strong downtrend momentum"
-            reasoning.append("Strong downward momentum with HTF alignment")
+            if rsi <= 35:
+                # Oversold - don't short here, likely to bounce UP
+                action = 'HOLD'
+                confidence = 50
+                signal_type = 'RSI_BLOCKED'
+                prediction = f"Momentum down but RSI oversold ({rsi:.0f}) - bounce likely"
+                reasoning.append(f"RSI {rsi:.0f} too low - blocked SELL to avoid shorting bottom")
+            else:
+                action = 'SELL'
+                confidence = 80 + min(10, abs(price_change))
+                signal_type = 'TREND_FOLLOW'
+                prediction = "Riding strong downtrend momentum"
+                reasoning.append("Strong downward momentum with HTF alignment")
         else:
             action = 'HOLD'
             confidence = 50
