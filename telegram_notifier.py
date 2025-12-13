@@ -1,7 +1,9 @@
 """
 Telegram Notifier - Send alerts for new trading signals
+Uses file-based tracking to prevent duplicate notifications
 """
 import os
+import json
 import logging
 import requests
 from typing import Dict, Optional
@@ -9,13 +11,33 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+SENT_SIGNALS_FILE = '/tmp/telegram_sent_signals.json'
+
+def load_sent_signals() -> Dict:
+    """Load previously sent signals from file"""
+    try:
+        if os.path.exists(SENT_SIGNALS_FILE):
+            with open(SENT_SIGNALS_FILE, 'r') as f:
+                return json.load(f)
+    except Exception as e:
+        logger.warning(f"Could not load sent signals: {e}")
+    return {}
+
+def save_sent_signals(signals: Dict):
+    """Save sent signals to file"""
+    try:
+        with open(SENT_SIGNALS_FILE, 'w') as f:
+            json.dump(signals, f)
+    except Exception as e:
+        logger.warning(f"Could not save sent signals: {e}")
+
 class TelegramNotifier:
     """Send trading signal alerts to Telegram"""
     
     def __init__(self):
         self.bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
         self.chat_id = os.environ.get('TELEGRAM_CHAT_ID')
-        self.last_signals = {}
+        self.last_signals = load_sent_signals()
         
         if self.bot_token and self.chat_id:
             logger.info("Telegram notifications enabled")
@@ -50,21 +72,34 @@ class TelegramNotifier:
             return False
     
     def send_signal_alert(self, signal: Dict) -> bool:
-        """Send a new trading signal alert"""
+        """Send a new trading signal alert with duplicate prevention"""
         if not self.is_enabled():
             return False
         
         symbol = signal.get('symbol', 'UNKNOWN')
         action = signal.get('action', 'HOLD')
+        entry_price = signal.get('entry_price', 0)
         
         if action == 'HOLD':
             return True
         
-        last_action = self.last_signals.get(symbol)
-        if last_action == action:
+        last_data = self.last_signals.get(symbol, {})
+        last_action = last_data.get('action') if isinstance(last_data, dict) else last_data
+        last_time = last_data.get('timestamp', 0) if isinstance(last_data, dict) else 0
+        
+        current_time = datetime.now().timestamp()
+        cooldown_seconds = 7200
+        
+        if last_action == action and (current_time - last_time) < cooldown_seconds:
+            logger.info(f"Telegram: Skipping {symbol} {action} - already sent recently")
             return True
         
-        self.last_signals[symbol] = action
+        self.last_signals[symbol] = {
+            'action': action,
+            'timestamp': current_time,
+            'entry_price': entry_price
+        }
+        save_sent_signals(self.last_signals)
         
         confidence = signal.get('confidence', 0)
         current_price = signal.get('entry_price', 0)
