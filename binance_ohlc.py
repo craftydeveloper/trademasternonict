@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 CRYPTOCOMPARE_API_BASE = "https://min-api.cryptocompare.com/data/v2"
 BYBIT_API_BASE = "https://api.bybit.com/v5/market"
+BINANCE_US_API_BASE = "https://api.binance.us/api/v3"
+KUCOIN_API_BASE = "https://api.kucoin.com/api/v1"
 
 CACHE_DURATION = {
     '15m': 600,    # 10 min cache for 15m candles (increased for stability)
@@ -151,9 +153,136 @@ def fetch_cryptocompare_ohlc(symbol: str, timeframe: str, limit: int = 50) -> Op
         return None
 
 
+def fetch_binance_us_ohlc(symbol: str, timeframe: str, limit: int = 50) -> Optional[List[Dict]]:
+    """
+    Primary: Fetch OHLC data from Binance.US API (works globally, not geo-blocked).
+    Prices closely match Bybit for major pairs.
+    """
+    try:
+        symbol = symbol.upper().strip()
+        binance_symbol = f"{symbol}USDT"
+        
+        tf_map = {
+            '15m': '15m',
+            '1h': '1h',
+            '4h': '4h',
+            '1d': '1d',
+            '1w': '1w',
+        }
+        
+        if timeframe not in tf_map:
+            return None
+        
+        url = f"{BINANCE_US_API_BASE}/klines"
+        params = {
+            'symbol': binance_symbol,
+            'interval': tf_map[timeframe],
+            'limit': limit
+        }
+        
+        response = requests.get(url, params=params, timeout=15)
+        
+        if response.status_code == 200:
+            klines = response.json()
+            if isinstance(klines, list) and len(klines) > 0:
+                parsed = []
+                for k in klines:
+                    parsed.append({
+                        'open_time': datetime.fromtimestamp(int(k[0]) / 1000),
+                        'open': float(k[1]),
+                        'high': float(k[2]),
+                        'low': float(k[3]),
+                        'close': float(k[4]),
+                        'volume': float(k[5]),
+                        'close_time': datetime.fromtimestamp(int(k[6]) / 1000),
+                        'quote_volume': float(k[7]),
+                        'trades': int(k[8])
+                    })
+                if parsed:
+                    logger.info(f"✅ Binance.US OHLC: {len(parsed)} candles for {symbol} {timeframe}")
+                    return parsed
+        else:
+            logger.debug(f"Binance.US API HTTP {response.status_code} for {binance_symbol}")
+        
+        return None
+        
+    except requests.exceptions.Timeout:
+        logger.warning(f"Binance.US timeout for {symbol} {timeframe}")
+        return None
+    except Exception as e:
+        logger.warning(f"Binance.US OHLC failed for {symbol}: {e}")
+        return None
+
+
+def fetch_kucoin_ohlc(symbol: str, timeframe: str, limit: int = 50) -> Optional[List[Dict]]:
+    """
+    Secondary: Fetch OHLC data from KuCoin API (works globally).
+    """
+    try:
+        symbol = symbol.upper().strip()
+        kucoin_symbol = f"{symbol}-USDT"
+        
+        tf_map = {
+            '15m': '15min',
+            '1h': '1hour',
+            '4h': '4hour',
+            '1d': '1day',
+            '1w': '1week',
+        }
+        
+        if timeframe not in tf_map:
+            return None
+        
+        end_time = int(time.time())
+        hours_back = {'15m': 12, '1h': 50, '4h': 200, '1d': 50, '1w': 350}
+        start_time = end_time - (hours_back.get(timeframe, 50) * 3600)
+        
+        url = f"{KUCOIN_API_BASE}/market/candles"
+        params = {
+            'type': tf_map[timeframe],
+            'symbol': kucoin_symbol,
+            'startAt': start_time,
+            'endAt': end_time
+        }
+        
+        response = requests.get(url, params=params, timeout=15)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('code') == '200000' and data.get('data'):
+                klines = data['data']
+                parsed = []
+                for k in reversed(klines):
+                    parsed.append({
+                        'open_time': datetime.fromtimestamp(int(k[0])),
+                        'open': float(k[1]),
+                        'high': float(k[3]),
+                        'low': float(k[4]),
+                        'close': float(k[2]),
+                        'volume': float(k[5]),
+                        'close_time': datetime.fromtimestamp(int(k[0])),
+                        'quote_volume': float(k[6]) if len(k) > 6 else 0,
+                        'trades': 0
+                    })
+                if parsed:
+                    logger.info(f"✅ KuCoin OHLC: {len(parsed)} candles for {symbol} {timeframe}")
+                    return parsed
+        else:
+            logger.debug(f"KuCoin API HTTP {response.status_code} for {kucoin_symbol}")
+        
+        return None
+        
+    except requests.exceptions.Timeout:
+        logger.warning(f"KuCoin timeout for {symbol} {timeframe}")
+        return None
+    except Exception as e:
+        logger.warning(f"KuCoin OHLC failed for {symbol}: {e}")
+        return None
+
+
 def fetch_bybit_ohlc(symbol: str, timeframe: str, limit: int = 50) -> Optional[List[Dict]]:
     """
-    Fallback: Fetch OHLC data from Bybit public API.
+    Fallback: Fetch OHLC data from Bybit public API (may be geo-blocked).
     """
     try:
         symbol = symbol.upper().strip()
@@ -168,6 +297,7 @@ def fetch_bybit_ohlc(symbol: str, timeframe: str, limit: int = 50) -> Optional[L
         }
         
         if timeframe not in tf_map:
+            logger.debug(f"Bybit: Unknown timeframe {timeframe}")
             return None
         
         url = f"{BYBIT_API_BASE}/kline"
@@ -178,7 +308,7 @@ def fetch_bybit_ohlc(symbol: str, timeframe: str, limit: int = 50) -> Optional[L
             'limit': limit
         }
         
-        response = requests.get(url, params=params, timeout=10)
+        response = requests.get(url, params=params, timeout=15)
         
         if response.status_code == 200:
             data = response.json()
@@ -198,13 +328,20 @@ def fetch_bybit_ohlc(symbol: str, timeframe: str, limit: int = 50) -> Optional[L
                         'trades': 0
                     })
                 if parsed:
-                    logger.debug(f"✅ Bybit: Got {len(parsed)} candles for {symbol} {timeframe}")
+                    logger.info(f"✅ Bybit OHLC: {len(parsed)} candles for {symbol} {timeframe}")
                     return parsed
+            else:
+                logger.debug(f"Bybit API returned retCode={data.get('retCode')} for {bybit_symbol}")
+        else:
+            logger.debug(f"Bybit API HTTP {response.status_code} for {bybit_symbol}")
         
         return None
         
+    except requests.exceptions.Timeout:
+        logger.warning(f"Bybit timeout for {symbol} {timeframe}")
+        return None
     except Exception as e:
-        logger.warning(f"Bybit fallback failed for {symbol}: {e}")
+        logger.warning(f"Bybit OHLC failed for {symbol}: {e}")
         return None
 
 
@@ -220,7 +357,8 @@ def _rate_limit_wait():
 
 def get_cached_ohlc(symbol: str, interval: str, limit: int = 50) -> Optional[List[Dict]]:
     """Get OHLC data with caching to prevent rate limiting.
-    Prioritizes Bybit (since user trades there) with CryptoCompare as fallback."""
+    Priority: Binance (most reliable) > CryptoCompare > Bybit > Cache backup.
+    Note: Bybit API is often geo-blocked, so we use Binance as primary."""
     cache_key = f"{symbol}_{interval}"
     cache_duration = CACHE_DURATION.get(interval, 600)
     
@@ -238,7 +376,11 @@ def get_cached_ohlc(symbol: str, interval: str, limit: int = 50) -> Optional[Lis
     
     _rate_limit_wait()
     
-    ohlc = fetch_bybit_ohlc(symbol, interval, limit)
+    ohlc = fetch_binance_us_ohlc(symbol, interval, limit)
+    
+    if not ohlc or len(ohlc) < 10:
+        _rate_limit_wait()
+        ohlc = fetch_kucoin_ohlc(symbol, interval, limit)
     
     if not ohlc or len(ohlc) < 10:
         _rate_limit_wait()
