@@ -1102,23 +1102,25 @@ def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str,
             
             if fallback['has_signal'] and fallback['source'] == 'DIVERGENCE':
                 # RSI DIVERGENCE - high-probability reversal signal even without confluence
-                div_info = fallback['divergence']
+                div_info = fallback.get('divergence', {})
                 action = fallback['action']
-                confidence = 75 * fallback['confidence_modifier']  # 85% modifier for divergence
-                signal_type = f'DIVERGENCE_{div_info["divergence"]}'
-                prediction = div_info['description']
-                reasoning.append(f"RSI DIVERGENCE detected on {div_info['timeframe']}")
-                reasoning.append(f"Divergence strength: {div_info['strength']}")
+                # Divergence signals get 70-85% confidence based on strength
+                confidence = min(85, 70 + (div_info.get('strength', 0) / 10))
+                signal_type = f'DIVERGENCE_{div_info.get("divergence", "UNKNOWN")}'
+                prediction = div_info.get('description', 'RSI divergence detected')
+                reasoning.append(f"RSI DIVERGENCE detected on {div_info.get('timeframe', '4h')}")
+                reasoning.append(f"Divergence strength: {div_info.get('strength', 0)}")
                 
             elif fallback['has_signal'] and fallback['source'] == 'DOMINANT_TF':
                 # Single strong timeframe signal - use with reduced confidence
-                dom_rsi = fallback['dominant_rsi']
+                dom_rsi = fallback.get('dominant_rsi') or {}
                 action = fallback['action']
-                confidence = 70 * fallback['confidence_modifier']  # 70% modifier
-                signal_type = f'DOMINANT_TF_{dom_rsi["timeframe"].upper()}'
-                prediction = f"Single timeframe signal: {fallback['reason']}"
-                reasoning.append(f"Fallback to dominant TF: {dom_rsi['timeframe']}")
-                reasoning.append(f"RSI {dom_rsi['rsi']:.1f} - {dom_rsi['bias']}")
+                # Single TF signals get 60-75% confidence based on RSI strength
+                confidence = min(75, 60 + dom_rsi.get('strength', 0))
+                signal_type = f'DOMINANT_TF_{dom_rsi.get("timeframe", "4H").upper()}'
+                prediction = f"Single timeframe signal: {fallback.get('reason', 'Strong RSI signal')}"
+                reasoning.append(f"Fallback to dominant TF: {dom_rsi.get('timeframe', '4h')}")
+                reasoning.append(f"RSI {dom_rsi.get('rsi', 50):.1f} - {dom_rsi.get('bias', 'NEUTRAL')}")
                 
                 # Apply HTF filter even for fallback signals
                 if action == 'BUY' and htf_trend in ['BEARISH', 'WEAK_BEARISH']:
