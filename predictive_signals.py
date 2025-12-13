@@ -36,8 +36,8 @@ SIGNAL_VALIDITY_HOURS = 4  # Signals remain valid for 4 hours unless invalidated
 HTF_TRENDS = {}  # {symbol: {'trend': 'BULLISH/BEARISH/NEUTRAL', 'last_update': datetime, 'price_at_trend': float}}
 HTF_UPDATE_INTERVAL = 3600  # Update HTF analysis every 1 hour
 
-# Priority coins get extra research
-PRIORITY_COINS = ['ETH', 'SOL']
+# Priority coins get extra research (user's main trading pairs)
+PRIORITY_COINS = ['BTC', 'ETH', 'SOL']
 
 
 def get_priority_coin_research(symbol: str, current_price: float, price_change_24h: float) -> Dict:

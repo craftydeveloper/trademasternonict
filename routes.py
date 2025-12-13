@@ -1261,8 +1261,8 @@ def get_active_signal_trades():
 def get_predictive_trading_signals():
     """Get predictive trading signals that call tops and bottoms"""
     try:
-        # Priority coins - always show even if HOLD
-        PRIORITY_COINS = ['ETH', 'SOL']
+        # Priority coins - always show even if HOLD (user's main trading pairs)
+        PRIORITY_COINS = ['BTC', 'ETH', 'SOL']
         
         # Get market data
         data_provider = BackupDataProvider()
