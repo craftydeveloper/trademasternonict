@@ -443,6 +443,11 @@
             color: #ffc107;
         }
         
+        .priority-card .signal-badge.neutral {
+            background: rgba(108, 117, 125, 0.2);
+            color: #adb5bd;
+        }
+        
         .priority-card .outlook-text {
             font-size: 0.75rem;
             color: var(--text-secondary);
@@ -824,10 +829,9 @@
                 let html = '';
                 sortedCoins.forEach(coin => {
                     const research = coin.enhanced_research || {};
+                    const indicators = coin.indicators || {};
                     const price = coin.entry_price || 0;
                     const priceStr = price >= 1 ? `$${price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : `$${price.toFixed(6)}`;
-                    const action = coin.action || 'HOLD';
-                    const actionClass = action === 'BUY' ? 'buy' : action === 'SELL' ? 'sell' : 'hold';
                     
                     const support = research.support_levels || [];
                     const resistance = research.resistance_levels || [];
@@ -837,6 +841,57 @@
                     const outlook = research.outlook || 'Analyzing...';
                     const volatility = research.volatility || 'N/A';
                     
+                    // Predictive analysis - detect early reversal signals
+                    const rsi4h = rsi['4h'] || 50;
+                    const momentum = indicators.momentum || 'NEUTRAL';
+                    
+                    // Early warning detection
+                    let earlySignal = '';
+                    let earlySignalClass = '';
+                    let earlySignalIcon = '';
+                    
+                    if (rsi4h <= 30) {
+                        earlySignal = 'PUMP SETUP';
+                        earlySignalClass = 'buy';
+                        earlySignalIcon = 'fa-arrow-trend-up';
+                    } else if (rsi4h >= 70) {
+                        earlySignal = 'DUMP RISK';
+                        earlySignalClass = 'sell';
+                        earlySignalIcon = 'fa-arrow-trend-down';
+                    } else if (rsi4h <= 40 && (momentum === 'STRONG_DOWN' || momentum === 'DOWN')) {
+                        earlySignal = 'REVERSAL WATCH';
+                        earlySignalClass = 'hold';
+                        earlySignalIcon = 'fa-rotate';
+                    } else if (rsi4h >= 60 && (momentum === 'STRONG_UP' || momentum === 'UP')) {
+                        earlySignal = 'PEAK WATCH';
+                        earlySignalClass = 'hold';
+                        earlySignalIcon = 'fa-rotate';
+                    } else {
+                        earlySignal = 'NEUTRAL';
+                        earlySignalClass = 'neutral';
+                        earlySignalIcon = 'fa-minus';
+                    }
+                    
+                    // Momentum direction indicator
+                    let momentumText = '';
+                    let momentumColor = '';
+                    if (momentum === 'STRONG_UP') {
+                        momentumText = 'Strong Up';
+                        momentumColor = 'var(--accent-green)';
+                    } else if (momentum === 'UP') {
+                        momentumText = 'Up';
+                        momentumColor = '#7dcea0';
+                    } else if (momentum === 'STRONG_DOWN') {
+                        momentumText = 'Strong Down';
+                        momentumColor = 'var(--accent-red)';
+                    } else if (momentum === 'DOWN') {
+                        momentumText = 'Down';
+                        momentumColor = '#f1948a';
+                    } else {
+                        momentumText = 'Flat';
+                        momentumColor = 'var(--text-muted)';
+                    }
+                    
                     html += `
                         <div class="col-md-4 mb-3">
                             <div class="priority-card">
@@ -844,7 +899,9 @@
                                     <span class="coin-name"><i class="fas fa-star me-1" style="font-size: 0.8rem;"></i>${coin.symbol}</span>
                                     <div>
                                         <span class="coin-price">${priceStr}</span>
-                                        <span class="signal-badge ${actionClass} ms-2">${action}</span>
+                                        <span class="signal-badge ${earlySignalClass} ms-2" title="Early detection signal">
+                                            <i class="fas ${earlySignalIcon} me-1"></i>${earlySignal}
+                                        </span>
                                     </div>
                                 </div>
                                 <div class="research-grid">
@@ -861,8 +918,8 @@
                                         <div class="research-value">${rsi['4h'] || 'N/A'} / ${rsi['1d'] || 'N/A'}</div>
                                     </div>
                                     <div class="research-item">
-                                        <div class="research-label">Trend</div>
-                                        <div class="research-value">${trendStrength}</div>
+                                        <div class="research-label">Momentum</div>
+                                        <div class="research-value" style="color: ${momentumColor}">${momentumText}</div>
                                     </div>
                                     <div class="research-item">
                                         <div class="research-label">Phase</div>
