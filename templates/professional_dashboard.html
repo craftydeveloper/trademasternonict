@@ -357,6 +357,100 @@
             from { transform: translateX(0); opacity: 1; }
             to { transform: translateX(100%); opacity: 0; }
         }
+        
+        /* Priority Markets Styles */
+        .priority-card {
+            background: linear-gradient(135deg, rgba(26, 31, 38, 0.98) 0%, rgba(21, 25, 31, 0.95) 100%);
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            border-radius: 16px;
+            padding: 1.25rem;
+            transition: all 0.3s ease;
+            height: 100%;
+        }
+        
+        .priority-card:hover {
+            border-color: rgba(255, 215, 0, 0.6);
+            box-shadow: 0 8px 30px rgba(255, 215, 0, 0.15);
+            transform: translateY(-2px);
+        }
+        
+        .priority-card .coin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+        }
+        
+        .priority-card .coin-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #ffd700;
+        }
+        
+        .priority-card .coin-price {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .priority-card .research-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.6rem;
+        }
+        
+        .priority-card .research-item {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 0.5rem;
+            border-radius: 8px;
+        }
+        
+        .priority-card .research-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .priority-card .research-value {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .priority-card .signal-badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        
+        .priority-card .signal-badge.buy {
+            background: rgba(0, 255, 136, 0.2);
+            color: var(--accent-green);
+        }
+        
+        .priority-card .signal-badge.sell {
+            background: rgba(255, 71, 87, 0.2);
+            color: var(--accent-red);
+        }
+        
+        .priority-card .signal-badge.hold {
+            background: rgba(255, 193, 7, 0.2);
+            color: #ffc107;
+        }
+        
+        .priority-card .outlook-text {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-style: italic;
+            margin-top: 0.75rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
     </style>
 </head>
 <body class="bg-dark text-light">
@@ -461,6 +555,22 @@
                 <div class="metric-box">
                     <div class="metric-label">24h Change</div>
                     <div id="avg-change" class="metric-value text-success-clean">+2.4%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Priority Markets (BTC, ETH, SOL) -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h4 class="section-title">
+                    <i class="fas fa-star me-2" style="color: #ffd700;"></i>Priority Markets
+                    <small class="text-muted-clean ms-2" style="font-size: 0.7rem; font-weight: 400;">Deep Analysis</small>
+                </h4>
+                <div id="priority-markets-container" class="row">
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-info-clean spinner-border-sm" role="status"></div>
+                        <span class="ms-2 text-muted-clean">Loading priority markets...</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -655,7 +765,9 @@
                     // Handle predictive signals format
                     const signals = data.signals || [];
                     const notifications = data.notifications || [];
+                    const priorityCoins = data.priority_coins || [];
                     console.log('Predictive signals:', signals);
+                    console.log('Priority coins:', priorityCoins);
                     console.log('Bias notifications:', notifications);
                     
                     // Store signals for modals
@@ -666,6 +778,9 @@
                     
                     // Check for price changes and update existing cards
                     this.updateExistingPrices(signals);
+                    
+                    // Display priority markets with deep analysis
+                    this.displayPriorityMarkets(priorityCoins);
                     
                     // Display signals immediately
                     this.displayFastSignals(signals);
@@ -689,6 +804,84 @@
                     textEl.textContent = `${arrow} BIAS CHANGE: ${latestNotification.symbol} changed from ${latestNotification.previous} to ${latestNotification.new} at $${latestNotification.price?.toFixed(4) || 'N/A'}`;
                     banner.style.display = 'block';
                 }
+            }
+
+            displayPriorityMarkets(priorityCoins) {
+                const container = document.getElementById('priority-markets-container');
+                if (!container) return;
+                
+                if (!priorityCoins || priorityCoins.length === 0) {
+                    container.innerHTML = '<div class="col-12 text-center py-3"><p class="text-muted-clean">No priority market data available</p></div>';
+                    return;
+                }
+                
+                // Sort: BTC first, then ETH, then SOL
+                const order = {'BTC': 0, 'ETH': 1, 'SOL': 2};
+                const sortedCoins = [...priorityCoins].sort((a, b) => 
+                    (order[a.symbol] ?? 99) - (order[b.symbol] ?? 99)
+                );
+                
+                let html = '';
+                sortedCoins.forEach(coin => {
+                    const research = coin.enhanced_research || {};
+                    const price = coin.entry_price || 0;
+                    const priceStr = price >= 1 ? `$${price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : `$${price.toFixed(6)}`;
+                    const action = coin.action || 'HOLD';
+                    const actionClass = action === 'BUY' ? 'buy' : action === 'SELL' ? 'sell' : 'hold';
+                    
+                    const support = research.support_levels || [];
+                    const resistance = research.resistance_levels || [];
+                    const rsi = research.multi_tf_rsi || {};
+                    const trendStrength = research.trend_strength || 'N/A';
+                    const marketPhase = research.market_phase || 'N/A';
+                    const outlook = research.outlook || 'Analyzing...';
+                    const volatility = research.volatility || 'N/A';
+                    
+                    html += `
+                        <div class="col-md-4 mb-3">
+                            <div class="priority-card">
+                                <div class="coin-header">
+                                    <span class="coin-name"><i class="fas fa-star me-1" style="font-size: 0.8rem;"></i>${coin.symbol}</span>
+                                    <div>
+                                        <span class="coin-price">${priceStr}</span>
+                                        <span class="signal-badge ${actionClass} ms-2">${action}</span>
+                                    </div>
+                                </div>
+                                <div class="research-grid">
+                                    <div class="research-item">
+                                        <div class="research-label">Support</div>
+                                        <div class="research-value">${support[0] ? (support[0] >= 1 ? '$' + support[0].toLocaleString() : '$' + support[0].toFixed(4)) : 'N/A'}</div>
+                                    </div>
+                                    <div class="research-item">
+                                        <div class="research-label">Resistance</div>
+                                        <div class="research-value">${resistance[0] ? (resistance[0] >= 1 ? '$' + resistance[0].toLocaleString() : '$' + resistance[0].toFixed(4)) : 'N/A'}</div>
+                                    </div>
+                                    <div class="research-item">
+                                        <div class="research-label">RSI (4H / 1D)</div>
+                                        <div class="research-value">${rsi['4h'] || 'N/A'} / ${rsi['1d'] || 'N/A'}</div>
+                                    </div>
+                                    <div class="research-item">
+                                        <div class="research-label">Trend</div>
+                                        <div class="research-value">${trendStrength}</div>
+                                    </div>
+                                    <div class="research-item">
+                                        <div class="research-label">Phase</div>
+                                        <div class="research-value">${marketPhase}</div>
+                                    </div>
+                                    <div class="research-item">
+                                        <div class="research-label">Volatility</div>
+                                        <div class="research-value">${volatility}</div>
+                                    </div>
+                                </div>
+                                <div class="outlook-text">
+                                    <i class="fas fa-lightbulb me-1"></i>${outlook}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                container.innerHTML = html;
             }
 
             displayFastSignals(signals) {
