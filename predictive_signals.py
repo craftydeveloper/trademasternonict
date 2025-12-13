@@ -19,7 +19,9 @@ from binance_ohlc import (
     get_price_momentum,
     get_volume_analysis,
     get_comprehensive_analysis,
-    is_symbol_available
+    is_symbol_available,
+    detect_rsi_divergence,
+    get_dominant_timeframe_signal
 )
 
 SIGNALS_PERSISTENCE_FILE = '/tmp/active_signals.json'
@@ -1094,10 +1096,52 @@ def predict_reversal(symbol: str, rsi: float, macd: str, momentum: str,
                 prediction = "Riding strong downtrend momentum"
                 reasoning.append(f"Strong downward momentum with {bearish_count} confirming indicators")
         else:
-            action = 'HOLD'
-            confidence = 50
-            signal_type = 'NO_CLEAR_SIGNAL'
-            prediction = f"No clear direction - waiting for setup (HTF: {htf_trend})"
+            # === FALLBACK STRATEGY ===
+            # When confluence is weak, check for RSI divergence or dominant timeframe signal
+            fallback = get_dominant_timeframe_signal(symbol)
+            
+            if fallback['has_signal'] and fallback['source'] == 'DIVERGENCE':
+                # RSI DIVERGENCE - high-probability reversal signal even without confluence
+                div_info = fallback['divergence']
+                action = fallback['action']
+                confidence = 75 * fallback['confidence_modifier']  # 85% modifier for divergence
+                signal_type = f'DIVERGENCE_{div_info["divergence"]}'
+                prediction = div_info['description']
+                reasoning.append(f"RSI DIVERGENCE detected on {div_info['timeframe']}")
+                reasoning.append(f"Divergence strength: {div_info['strength']}")
+                
+            elif fallback['has_signal'] and fallback['source'] == 'DOMINANT_TF':
+                # Single strong timeframe signal - use with reduced confidence
+                dom_rsi = fallback['dominant_rsi']
+                action = fallback['action']
+                confidence = 70 * fallback['confidence_modifier']  # 70% modifier
+                signal_type = f'DOMINANT_TF_{dom_rsi["timeframe"].upper()}'
+                prediction = f"Single timeframe signal: {fallback['reason']}"
+                reasoning.append(f"Fallback to dominant TF: {dom_rsi['timeframe']}")
+                reasoning.append(f"RSI {dom_rsi['rsi']:.1f} - {dom_rsi['bias']}")
+                
+                # Apply HTF filter even for fallback signals
+                if action == 'BUY' and htf_trend in ['BEARISH', 'WEAK_BEARISH']:
+                    action = 'HOLD'
+                    confidence = 50
+                    signal_type = 'HTF_BLOCKED'
+                    prediction = f"Dominant TF suggests BUY but HTF is {htf_trend}"
+                    reasoning.append("Fallback signal blocked by HTF trend")
+                elif action == 'SELL' and htf_trend in ['BULLISH', 'WEAK_BULLISH']:
+                    action = 'HOLD'
+                    confidence = 50
+                    signal_type = 'HTF_BLOCKED'
+                    prediction = f"Dominant TF suggests SELL but HTF is {htf_trend}"
+                    reasoning.append("Fallback signal blocked by HTF trend")
+            else:
+                action = 'HOLD'
+                confidence = 50
+                signal_type = 'NO_CLEAR_SIGNAL'
+                prediction = f"No clear direction - waiting for setup (HTF: {htf_trend})"
+                # Include divergence info in reasoning for transparency
+                div_info = fallback.get('divergence', {})
+                if div_info.get('divergence') not in ['NONE', None]:
+                    reasoning.append(f"Weak divergence: {div_info.get('divergence')} ({div_info.get('strength', 0)} strength)")
     
     # Apply tier bonuses for major tokens
     if symbol in ['SOL', 'LINK', 'DOT', 'AVAX', 'UNI']:

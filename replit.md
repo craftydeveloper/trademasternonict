@@ -71,6 +71,36 @@ The predictive signal system has been redesigned for long-term trading with pati
 - Prices formatted consistently: 6 decimals for <$1 tokens, 4 decimals for >=$1 tokens
 - View Setup modal displays all fields correctly for both new signals and active positions
 
+## RSI Divergence Detection & Fallback Strategy (Dec 13, 2025)
+
+Enhanced signal generation with divergence detection and fallback for when confluence is weak:
+
+**RSI Divergence Detection:**
+- Bullish Divergence: Price makes LOWER low, RSI makes HIGHER low → reversal UP likely
+- Bearish Divergence: Price makes HIGHER high, RSI makes LOWER high → reversal DOWN likely
+- Hidden Bullish: Higher price low + Lower RSI low → uptrend continuation
+- Hidden Bearish: Lower price high + Higher RSI high → downtrend continuation
+- Divergence strength calculated from price/RSI delta (stronger = more reliable)
+- Checked on 4h timeframe for optimal balance of noise reduction and responsiveness
+
+**Fallback Strategy (No Confluence):**
+When multiple timeframes don't agree, the system uses:
+1. **RSI Divergence (85% confidence)** - If detected, overrides weak confluence
+2. **Dominant Timeframe (70% confidence)** - Uses strongest signal from 4h > 1d > 1h
+3. **HTF Filter Still Applied** - Fallback signals blocked if against HTF trend
+
+**Signal Priority Hierarchy:**
+1. Strong multi-TF confluence (highest confidence)
+2. RSI divergence signal (85% confidence modifier)
+3. Dominant single TF signal (70% confidence modifier)
+4. HOLD if nothing clear
+
+**Implementation:**
+- `detect_rsi_divergence(symbol, timeframe)` - Detects classic/hidden divergences
+- `get_dominant_timeframe_signal(symbol)` - Returns fallback signal with source
+- Integrated into `predict_reversal()` as final fallback path
+- Ensures opportunities aren't missed when TF confluence is weak
+
 ## Real OHLC Data Integration (Dec 13, 2025)
 
 The analysis system now uses REAL historical candlestick data from CryptoCompare/Bybit APIs:

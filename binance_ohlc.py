@@ -394,6 +394,218 @@ def get_volume_analysis(symbol: str, timeframe: str = '1h') -> Dict:
     }
 
 
+def detect_rsi_divergence(symbol: str, timeframe: str = '4h') -> Dict:
+    """
+    Detect RSI Divergence - a powerful reversal signal.
+    
+    Bullish Divergence: Price makes LOWER low, but RSI makes HIGHER low
+    -> Indicates selling pressure weakening, potential reversal UP
+    
+    Bearish Divergence: Price makes HIGHER high, but RSI makes LOWER high
+    -> Indicates buying pressure weakening, potential reversal DOWN
+    
+    Hidden Bullish: Price makes HIGHER low, RSI makes LOWER low (trend continuation)
+    Hidden Bearish: Price makes LOWER high, RSI makes HIGHER high (trend continuation)
+    """
+    ohlc = get_cached_ohlc(symbol, timeframe, limit=30)
+    if not ohlc or len(ohlc) < 20:
+        return {'divergence': 'NONE', 'type': None, 'strength': 0, 'description': 'Insufficient data'}
+    
+    closes = [c['close'] for c in ohlc]
+    lows = [c['low'] for c in ohlc]
+    highs = [c['high'] for c in ohlc]
+    
+    # Calculate RSI for each bar (using 14-period lookback)
+    rsi_values = []
+    for i in range(14, len(closes)):
+        rsi = calculate_rsi_from_closes(closes[:i+1], period=14)
+        rsi_values.append(rsi)
+    
+    if len(rsi_values) < 10:
+        return {'divergence': 'NONE', 'type': None, 'strength': 0, 'description': 'Insufficient RSI data'}
+    
+    # Find recent swing points (last 15 bars)
+    recent_lows = lows[-15:]
+    recent_highs = highs[-15:]
+    recent_rsi = rsi_values[-15:]
+    
+    # Find local minima for bullish divergence check
+    def find_swing_lows(prices, rsi_vals, window=3):
+        swings = []
+        for i in range(window, len(prices) - window):
+            if prices[i] == min(prices[i-window:i+window+1]):
+                swings.append({'idx': i, 'price': prices[i], 'rsi': rsi_vals[i] if i < len(rsi_vals) else 50})
+        return swings
+    
+    # Find local maxima for bearish divergence check
+    def find_swing_highs(prices, rsi_vals, window=3):
+        swings = []
+        for i in range(window, len(prices) - window):
+            if prices[i] == max(prices[i-window:i+window+1]):
+                swings.append({'idx': i, 'price': prices[i], 'rsi': rsi_vals[i] if i < len(rsi_vals) else 50})
+        return swings
+    
+    swing_lows = find_swing_lows(recent_lows, recent_rsi)
+    swing_highs = find_swing_highs(recent_highs, recent_rsi)
+    
+    divergence = 'NONE'
+    div_type = None
+    strength = 0
+    description = 'No divergence detected'
+    
+    # Check for BULLISH DIVERGENCE (most recent 2 swing lows)
+    if len(swing_lows) >= 2:
+        prev_low = swing_lows[-2]
+        curr_low = swing_lows[-1]
+        
+        # Classic Bullish: Lower price low + Higher RSI low
+        if curr_low['price'] < prev_low['price'] and curr_low['rsi'] > prev_low['rsi']:
+            price_drop = ((prev_low['price'] - curr_low['price']) / prev_low['price']) * 100
+            rsi_rise = curr_low['rsi'] - prev_low['rsi']
+            
+            if price_drop > 2 and rsi_rise > 5:
+                divergence = 'BULLISH'
+                div_type = 'CLASSIC'
+                strength = min(100, int(price_drop * 10 + rsi_rise * 3))
+                description = f"Price made lower low (-{price_drop:.1f}%) but RSI rose (+{rsi_rise:.1f}) - reversal likely"
+        
+        # Hidden Bullish: Higher price low + Lower RSI low (trend continuation)
+        elif curr_low['price'] > prev_low['price'] and curr_low['rsi'] < prev_low['rsi']:
+            divergence = 'HIDDEN_BULLISH'
+            div_type = 'HIDDEN'
+            strength = 50
+            description = "Hidden bullish divergence - uptrend continuation signal"
+    
+    # Check for BEARISH DIVERGENCE (most recent 2 swing highs)
+    if len(swing_highs) >= 2 and divergence == 'NONE':
+        prev_high = swing_highs[-2]
+        curr_high = swing_highs[-1]
+        
+        # Classic Bearish: Higher price high + Lower RSI high
+        if curr_high['price'] > prev_high['price'] and curr_high['rsi'] < prev_high['rsi']:
+            price_rise = ((curr_high['price'] - prev_high['price']) / prev_high['price']) * 100
+            rsi_drop = prev_high['rsi'] - curr_high['rsi']
+            
+            if price_rise > 2 and rsi_drop > 5:
+                divergence = 'BEARISH'
+                div_type = 'CLASSIC'
+                strength = min(100, int(price_rise * 10 + rsi_drop * 3))
+                description = f"Price made higher high (+{price_rise:.1f}%) but RSI fell (-{rsi_drop:.1f}) - reversal likely"
+        
+        # Hidden Bearish: Lower price high + Higher RSI high (trend continuation)
+        elif curr_high['price'] < prev_high['price'] and curr_high['rsi'] > prev_high['rsi']:
+            divergence = 'HIDDEN_BEARISH'
+            div_type = 'HIDDEN'
+            strength = 50
+            description = "Hidden bearish divergence - downtrend continuation signal"
+    
+    return {
+        'divergence': divergence,
+        'type': div_type,
+        'strength': strength,
+        'description': description,
+        'timeframe': timeframe
+    }
+
+
+def get_dominant_timeframe_signal(symbol: str) -> Dict:
+    """
+    FALLBACK STRATEGY: When confluence is weak, use the most reliable single timeframe.
+    
+    Priority order (based on reliability for crypto):
+    1. 4h - Best balance of noise filtering and responsiveness
+    2. 1d - Very reliable but slower
+    3. 1h - Good for faster setups
+    
+    Also checks for RSI divergence as a strong entry signal even without confluence.
+    """
+    all_rsi = get_real_timeframe_rsi(symbol)
+    
+    # Priority timeframes for fallback
+    priority_tfs = ['4h', '1d', '1h']
+    
+    # Find the strongest signal from priority timeframes
+    strongest_signal = None
+    strongest_strength = 0
+    
+    for tf in priority_tfs:
+        rsi = all_rsi.get(tf, 50)
+        
+        # Calculate signal strength based on distance from neutral (50)
+        if rsi < 30:
+            strength = (30 - rsi) * 3  # Very oversold = stronger
+            signal = {'timeframe': tf, 'rsi': rsi, 'bias': 'STRONGLY_OVERSOLD', 'action': 'BUY', 'strength': strength}
+        elif rsi < 40:
+            strength = (40 - rsi) * 2
+            signal = {'timeframe': tf, 'rsi': rsi, 'bias': 'OVERSOLD', 'action': 'BUY', 'strength': strength}
+        elif rsi > 70:
+            strength = (rsi - 70) * 3
+            signal = {'timeframe': tf, 'rsi': rsi, 'bias': 'STRONGLY_OVERBOUGHT', 'action': 'SELL', 'strength': strength}
+        elif rsi > 60:
+            strength = (rsi - 60) * 2
+            signal = {'timeframe': tf, 'rsi': rsi, 'bias': 'OVERBOUGHT', 'action': 'SELL', 'strength': strength}
+        else:
+            strength = 0
+            signal = {'timeframe': tf, 'rsi': rsi, 'bias': 'NEUTRAL', 'action': 'HOLD', 'strength': 0}
+        
+        if strength > strongest_strength:
+            strongest_signal = signal
+            strongest_strength = strength
+    
+    # Check for RSI divergence (overrides weak confluence)
+    divergence = detect_rsi_divergence(symbol, '4h')
+    
+    if divergence['divergence'] in ['BULLISH', 'BEARISH'] and divergence['strength'] > 40:
+        # Divergence is a powerful signal even without confluence
+        if divergence['divergence'] == 'BULLISH':
+            return {
+                'has_signal': True,
+                'source': 'DIVERGENCE',
+                'action': 'BUY',
+                'confidence_modifier': 0.85,  # 85% confidence for divergence signals
+                'timeframe': divergence['timeframe'],
+                'reason': divergence['description'],
+                'divergence': divergence,
+                'dominant_rsi': strongest_signal
+            }
+        else:
+            return {
+                'has_signal': True,
+                'source': 'DIVERGENCE',
+                'action': 'SELL',
+                'confidence_modifier': 0.85,
+                'timeframe': divergence['timeframe'],
+                'reason': divergence['description'],
+                'divergence': divergence,
+                'dominant_rsi': strongest_signal
+            }
+    
+    # If no divergence, use dominant timeframe signal
+    if strongest_signal and strongest_signal['strength'] > 20:
+        return {
+            'has_signal': True,
+            'source': 'DOMINANT_TF',
+            'action': strongest_signal['action'],
+            'confidence_modifier': 0.70,  # 70% confidence for single TF (lower than confluence)
+            'timeframe': strongest_signal['timeframe'],
+            'reason': f"{strongest_signal['timeframe']} RSI at {strongest_signal['rsi']:.1f} ({strongest_signal['bias']})",
+            'divergence': divergence,
+            'dominant_rsi': strongest_signal
+        }
+    
+    # No clear signal
+    return {
+        'has_signal': False,
+        'source': 'NONE',
+        'action': 'HOLD',
+        'confidence_modifier': 0.5,
+        'timeframe': None,
+        'reason': 'No clear signal from any timeframe',
+        'divergence': divergence,
+        'dominant_rsi': strongest_signal
+    }
+
+
 def get_comprehensive_analysis(symbol: str) -> Dict:
     """
     Get comprehensive technical analysis using REAL OHLC data.
