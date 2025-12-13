@@ -103,12 +103,20 @@ When multiple timeframes don't agree, the system uses:
 
 ## Real OHLC Data Integration (Dec 13, 2025)
 
-The analysis system now uses REAL historical candlestick data from CryptoCompare/Bybit APIs:
+The analysis system now uses REAL historical candlestick data from multiple reliable APIs:
 
-**Data Sources:**
-- Primary: CryptoCompare OHLC API (works globally, no geo-restrictions)
-- Fallback: Bybit public market data API
-- Caching: 5-15 min cache per timeframe to prevent rate limiting
+**Data Sources (Priority Order):**
+- Primary: Binance.US OHLC API (works globally, not geo-blocked, matches Bybit prices closely)
+- Secondary: KuCoin API (works globally, reliable fallback)
+- Tertiary: CryptoCompare OHLC API (rate limited on free tier)
+- Backup: Persistent file cache in /tmp/ohlc_cache/ (survives API failures)
+
+**Reliability Improvements (Dec 13, 2025):**
+- Increased cache durations: 10min (15m), 30min (1h), 1hr (4h), 2hr (1d), 4hr (1w)
+- Request throttling: 200ms between API calls to prevent rate limiting
+- Fallback chain: If one API fails, automatically tries the next
+- Persistent backup: Cache saved to disk, usable for up to 24 hours
+- Note: Bybit and Binance main APIs are geo-blocked from server, so Binance.US is used
 
 **Real Calculations:**
 - RSI: Calculated from actual 14-period closing prices (not simulated)
