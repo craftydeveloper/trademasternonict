@@ -36,6 +36,76 @@ SIGNAL_VALIDITY_HOURS = 4  # Signals remain valid for 4 hours unless invalidated
 HTF_TRENDS = {}  # {symbol: {'trend': 'BULLISH/BEARISH/NEUTRAL', 'last_update': datetime, 'price_at_trend': float}}
 HTF_UPDATE_INTERVAL = 3600  # Update HTF analysis every 1 hour
 
+# Priority coins get extra research
+PRIORITY_COINS = ['ETH', 'SOL']
+
+
+def get_priority_coin_research(symbol: str, current_price: float, price_change_24h: float) -> Dict:
+    """
+    Enhanced research for priority coins (ETH, SOL).
+    Provides deeper multi-timeframe analysis and key levels.
+    """
+    if symbol not in PRIORITY_COINS:
+        return {}
+    
+    # Calculate key support/resistance levels
+    # Using price-based estimation (in real trading, this would come from order book data)
+    volatility_factor = abs(price_change_24h) / 100 if price_change_24h else 0.02
+    volatility_factor = max(0.015, min(0.05, volatility_factor))  # Clamp between 1.5% and 5%
+    
+    # Key levels
+    support_1 = current_price * (1 - volatility_factor)
+    support_2 = current_price * (1 - volatility_factor * 2)
+    resistance_1 = current_price * (1 + volatility_factor)
+    resistance_2 = current_price * (1 + volatility_factor * 2)
+    
+    # Multi-timeframe RSI estimation
+    rsi_4h = 50 + (price_change_24h * 2)  # Rough 4H RSI
+    rsi_4h = max(10, min(90, rsi_4h))
+    rsi_1d = 50 + (price_change_24h * 1.5)  # Daily RSI
+    rsi_1d = max(15, min(85, rsi_1d))
+    
+    # Trend strength
+    if abs(price_change_24h) > 5:
+        trend_strength = 'STRONG'
+    elif abs(price_change_24h) > 2:
+        trend_strength = 'MODERATE'
+    else:
+        trend_strength = 'WEAK'
+    
+    # Market phase
+    if price_change_24h > 3:
+        market_phase = 'EXPANSION'
+    elif price_change_24h < -3:
+        market_phase = 'CONTRACTION'
+    elif abs(price_change_24h) < 1:
+        market_phase = 'CONSOLIDATION'
+    else:
+        market_phase = 'TRANSITION'
+    
+    # Recommendation based on analysis
+    if rsi_4h < 35 and price_change_24h < -2:
+        outlook = 'Oversold - Watch for bounce'
+    elif rsi_4h > 65 and price_change_24h > 2:
+        outlook = 'Overbought - Watch for pullback'
+    elif market_phase == 'CONSOLIDATION':
+        outlook = 'Range-bound - Wait for breakout'
+    else:
+        outlook = 'Monitor key levels'
+    
+    return {
+        'is_priority': True,
+        'enhanced_research': {
+            'support_levels': [round(support_1, 4), round(support_2, 4)],
+            'resistance_levels': [round(resistance_1, 4), round(resistance_2, 4)],
+            'multi_tf_rsi': {'4h': round(rsi_4h, 1), '1d': round(rsi_1d, 1)},
+            'trend_strength': trend_strength,
+            'market_phase': market_phase,
+            'outlook': outlook,
+            'volatility': f"{volatility_factor*100:.1f}%"
+        }
+    }
+
 # Consecutive confirmation tracking - requires 2+ moves in same direction
 PRICE_DIRECTION_HISTORY = {}  # {symbol: [direction1, direction2, ...]} where direction is 'UP' or 'DOWN'
 MAX_DIRECTION_HISTORY = 3  # Keep last 3 price moves

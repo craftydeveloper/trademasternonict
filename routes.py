@@ -27,7 +27,8 @@ from predictive_signals import (
     get_active_trades,
     track_displayed_signal,
     clear_bias_notifications,
-    clear_all_signal_state
+    clear_all_signal_state,
+    get_priority_coin_research
 )
 from telegram_notifier import notifier as telegram_notifier
 
@@ -1260,6 +1261,9 @@ def get_active_signal_trades():
 def get_predictive_trading_signals():
     """Get predictive trading signals that call tops and bottoms"""
     try:
+        # Priority coins - always show even if HOLD
+        PRIORITY_COINS = ['ETH', 'SOL']
+        
         # Get market data
         data_provider = BackupDataProvider()
         market_data = data_provider.get_market_data() or {}
@@ -1279,8 +1283,11 @@ def get_predictive_trading_signals():
         all_tokens = get_comprehensive_bybit_tokens()
         
         signals = []
+        priority_signals = []  # Separate list for priority coins
+        
         for token in all_tokens[:25]:  # Top 25 tokens
             symbol = token['symbol']
+            is_priority = symbol in PRIORITY_COINS
             
             if symbol not in market_data:
                 continue
@@ -1307,8 +1314,17 @@ def get_predictive_trading_signals():
                 )
                 signal['can_trade'] = False
                 signal['trade_status'] = reason
-                if signal['action'] != 'HOLD':
-                    signals.append(signal)
+                signal['is_priority'] = is_priority
+                # Add enhanced research for priority coins
+                if is_priority:
+                    research = get_priority_coin_research(symbol, current_price, price_change)
+                    signal.update(research)
+                # Always include priority coins, otherwise only include non-HOLD
+                if is_priority or signal['action'] != 'HOLD':
+                    if is_priority:
+                        priority_signals.append(signal)
+                    else:
+                        signals.append(signal)
                 continue
             
             # Get predictive signal for tradeable symbols
@@ -1322,17 +1338,32 @@ def get_predictive_trading_signals():
             # Add trade status info
             signal['can_trade'] = True
             signal['trade_status'] = 'Ready to trade'
+            signal['is_priority'] = is_priority
             
-            # Only include actionable signals (not HOLD)
-            if signal['action'] != 'HOLD' and signal['confidence'] >= 80:
+            # Add enhanced research for priority coins
+            if is_priority:
+                research = get_priority_coin_research(symbol, current_price, price_change)
+                signal.update(research)
+            
+            # Always include priority coins, otherwise only include actionable signals
+            if is_priority:
+                priority_signals.append(signal)
+            elif signal['action'] != 'HOLD' and signal['confidence'] >= 80:
                 signals.append(signal)
         
-        # Sort by confidence, but prioritize tradeable signals
+        # Sort regular signals by confidence
         signals.sort(key=lambda x: (x['can_trade'], x['confidence']), reverse=True)
         
-        # Track bias changes ONLY for the final displayed signals (top 6)
-        final_signals = signals[:6]
-        for sig in final_signals:
+        # Sort priority signals (ETH first, then SOL)
+        priority_order = {'ETH': 0, 'SOL': 1}
+        priority_signals.sort(key=lambda x: priority_order.get(x['symbol'], 99))
+        
+        # Combine: priority signals first, then top regular signals
+        # Priority signals always at front, fill remaining slots with other signals
+        combined_signals = priority_signals + signals[:max(0, 6 - len(priority_signals))]
+        
+        # Track bias changes for all displayed signals
+        for sig in combined_signals:
             track_displayed_signal(sig['symbol'], sig['action'], sig['entry_price'])
         
         # Get notifications (only for displayed signals now)
@@ -1340,7 +1371,8 @@ def get_predictive_trading_signals():
         
         return jsonify({
             'success': True,
-            'signals': signals[:6],  # Top 6 signals
+            'signals': combined_signals,  # Priority coins + top signals
+            'priority_coins': [s for s in combined_signals if s.get('is_priority')],
             'notifications': notifications,
             'active_trades': len(get_active_trades()),
             'total_analyzed': len(all_tokens[:25]),
