@@ -67,6 +67,25 @@ The predictive signal system has been redesigned for long-term trading with pati
 - Prices formatted consistently: 6 decimals for <$1 tokens, 4 decimals for >=$1 tokens
 - View Setup modal displays all fields correctly for both new signals and active positions
 
+## Priority Markets Section (Dec 13, 2025)
+
+A dedicated Priority Markets section displays deep analysis for BTC, ETH, and SOL:
+
+**Display Features:**
+- Golden-bordered cards with priority star icons
+- Real-time prices with signal badges (BUY/SELL/HOLD)
+- Support and resistance levels
+- Multi-timeframe RSI (4H / 1D)
+- Trend strength indicator
+- Market phase detection
+- Volatility percentage
+- Outlook/recommendation text
+
+**Implementation:**
+- Backend: PRIORITY_COINS = ['BTC', 'ETH', 'SOL'] in routes.py and predictive_signals.py
+- API: /api/predictive-signals returns priority_coins array with enhanced_research data
+- Frontend: displayPriorityMarkets() function renders priority cards in professional_dashboard.html
+
 ## Telegram Integration (Dec 2025)
 
 **Toggle Control:**
