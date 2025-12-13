@@ -71,6 +71,28 @@ The predictive signal system has been redesigned for long-term trading with pati
 - Prices formatted consistently: 6 decimals for <$1 tokens, 4 decimals for >=$1 tokens
 - View Setup modal displays all fields correctly for both new signals and active positions
 
+## Real OHLC Data Integration (Dec 13, 2025)
+
+The analysis system now uses REAL historical candlestick data from CryptoCompare/Bybit APIs:
+
+**Data Sources:**
+- Primary: CryptoCompare OHLC API (works globally, no geo-restrictions)
+- Fallback: Bybit public market data API
+- Caching: 5-15 min cache per timeframe to prevent rate limiting
+
+**Real Calculations:**
+- RSI: Calculated from actual 14-period closing prices (not simulated)
+- MACD: Real 12/26/9 EMA calculations from historical closes
+- Support/Resistance: Derived from actual high/low prices over 20 periods
+- Momentum: Based on real 5-period and 20-period price changes
+- Volume Analysis: Compares recent vs historical volume averages
+
+**Implementation:**
+- `binance_ohlc.py`: Module for fetching and caching real OHLC data
+- `get_real_timeframe_rsi()`: Returns RSI for all 5 timeframes
+- `get_real_support_resistance()`: Returns actual S/R levels from price data
+- Falls back to simulated values if real data unavailable
+
 ## All-Timeframe Analysis (Dec 13, 2025)
 
 The signal system now uses ALL timeframes for comprehensive analysis:
