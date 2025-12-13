@@ -946,9 +946,19 @@
                                         <div class="research-label">Resistance</div>
                                         <div class="research-value">${resistance[0] ? (resistance[0] >= 1 ? '$' + resistance[0].toLocaleString() : '$' + resistance[0].toFixed(4)) : 'N/A'}</div>
                                     </div>
+                                    <div class="research-item" style="grid-column: span 2;">
+                                        <div class="research-label">RSI All Timeframes (15m / 1h / 4h / 1d / 1w)</div>
+                                        <div class="research-value" style="font-size: 0.8rem;">
+                                            <span style="color: ${(rsi['15m'] || 50) < 35 ? 'var(--accent-green)' : (rsi['15m'] || 50) > 65 ? 'var(--accent-red)' : 'inherit'}">${rsi['15m'] || 'N/A'}</span> / 
+                                            <span style="color: ${(rsi['1h'] || 50) < 35 ? 'var(--accent-green)' : (rsi['1h'] || 50) > 65 ? 'var(--accent-red)' : 'inherit'}">${rsi['1h'] || 'N/A'}</span> / 
+                                            <span style="color: ${(rsi['4h'] || 50) < 35 ? 'var(--accent-green)' : (rsi['4h'] || 50) > 65 ? 'var(--accent-red)' : 'inherit'}">${rsi['4h'] || 'N/A'}</span> / 
+                                            <span style="color: ${(rsi['1d'] || 50) < 35 ? 'var(--accent-green)' : (rsi['1d'] || 50) > 65 ? 'var(--accent-red)' : 'inherit'}">${rsi['1d'] || 'N/A'}</span> / 
+                                            <span style="color: ${(rsi['1w'] || 50) < 35 ? 'var(--accent-green)' : (rsi['1w'] || 50) > 65 ? 'var(--accent-red)' : 'inherit'}">${rsi['1w'] || 'N/A'}</span>
+                                        </div>
+                                    </div>
                                     <div class="research-item">
-                                        <div class="research-label">RSI (4H / 1D)</div>
-                                        <div class="research-value">${rsi['4h'] || 'N/A'} / ${rsi['1d'] || 'N/A'}</div>
+                                        <div class="research-label">TF Confluence</div>
+                                        <div class="research-value" style="font-size: 0.75rem; color: ${(research.tf_confluence?.overall_bias || '').includes('BULLISH') ? 'var(--accent-green)' : (research.tf_confluence?.overall_bias || '').includes('BEARISH') ? 'var(--accent-red)' : 'var(--text-muted)'}">${research.tf_confluence?.overall_bias || 'NEUTRAL'}</div>
                                     </div>
                                     <div class="research-item">
                                         <div class="research-label">Momentum</div>

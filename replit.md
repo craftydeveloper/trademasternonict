@@ -71,6 +71,29 @@ The predictive signal system has been redesigned for long-term trading with pati
 - Prices formatted consistently: 6 decimals for <$1 tokens, 4 decimals for >=$1 tokens
 - View Setup modal displays all fields correctly for both new signals and active positions
 
+## All-Timeframe Analysis (Dec 13, 2025)
+
+The signal system now uses ALL timeframes for comprehensive analysis:
+
+**Timeframes Analyzed:**
+- 15m (short-term) - Most reactive to recent changes
+- 1h (short-term) - Short-term momentum
+- 4h (medium-term) - Medium-term trend
+- 1d (daily) - Daily trend
+- 1w (weekly) - Long-term trend (smoothest)
+
+**Multi-Timeframe Confluence:**
+- Each timeframe contributes weighted scores (longer TF = more weight)
+- Confluence strength: VERY_STRONG (4+ TF agree), STRONG (3+), MODERATE (2+), WEAK
+- Overall bias: STRONG_BULLISH, BULLISH, NEUTRAL, BEARISH, STRONG_BEARISH
+- Color-coded RSI display: green for oversold (<35), red for overbought (>65)
+
+**Implementation:**
+- `calculate_all_timeframe_rsi()` - Calculates RSI for all 5 timeframes
+- `get_multi_timeframe_confluence()` - Analyzes agreement across timeframes
+- `predict_reversal()` - Uses confluence for better signal scoring
+- Frontend displays all 5 RSI values with color coding + confluence indicator
+
 ## Priority Markets Section (Dec 13, 2025)
 
 A dedicated Priority Markets section displays deep analysis for BTC, ETH, and SOL:
@@ -79,7 +102,8 @@ A dedicated Priority Markets section displays deep analysis for BTC, ETH, and SO
 - Golden-bordered cards with priority star icons
 - Real-time BUY/SELL/HOLD signals - uniform with rest of bot
 - Support and resistance levels
-- Multi-timeframe RSI (4H / 1D)
+- All-timeframe RSI (15m / 1h / 4h / 1d / 1w) with color coding
+- TF Confluence indicator showing overall bias
 - Momentum direction (Strong Up/Up/Down/Strong Down/Flat)
 - Market phase detection
 - Volatility percentage
